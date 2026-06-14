@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Gravitação Z — Fase 3B: O Canhão de Newton</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#04040e;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Share Tech Mono',monospace;color:#c8d8e8;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);pointer-events:none;z-index:999;}
+header{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+header h1{font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.2rem;letter-spacing:.3em;text-transform:uppercase;color:#ffe566;text-shadow:0 0 10px #ffe566,0 0 22px #ff9900;}
+.badge{font-size:.48rem;letter-spacing:.12em;padding:2px 8px;border:1px solid #4488ff;color:#4488ff}
+.canvas-wrapper{position:relative;border:2px solid #1e2a3a;box-shadow:0 0 50px rgba(0,100,255,.18)}
+canvas{display:block}
+.back-btn{position:fixed;top:12px;left:14px;font-family:'Press Start 2P',monospace;font-size:.5rem;color:#2a4a6a;text-decoration:none;letter-spacing:.1em;border:1px solid #1a2a3a;padding:5px 10px;z-index:50;transition:.2s;}
+.back-btn:hover{color:#4488ff;border-color:#4488ff}
+#overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:40;background:rgba(0,0,0,.85);}
+#overlay.visible{display:flex;animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.ov-box{border:3px solid #ffe566;background:rgba(4,4,22,.98);padding:28px 40px;text-align:center;box-shadow:0 0 40px rgba(255,229,100,.2);max-width:500px;}
+.ov-title{font-family:'Orbitron',sans-serif;font-size:1rem;color:#ffe566;text-shadow:0 0 16px #ff9900;letter-spacing:.2em;margin-bottom:14px;}
+.ov-text{font-size:.58rem;color:#c8d8e8;line-height:2;margin-bottom:18px;}
+.ov-btn{font-family:'Press Start 2P',monospace;font-size:.55rem;background:transparent;border:2px solid #ffe566;color:#ffe566;padding:10px 22px;cursor:pointer;letter-spacing:.12em;transition:.2s;margin:4px;}
+.ov-btn:hover{background:rgba(255,229,100,.1);box-shadow:0 0 12px rgba(255,229,100,.3);}
+.ov-btn.blue{border-color:#4488ff;color:#4488ff;}
+.ov-btn.blue:hover{background:rgba(68,136,255,.1);}
+</style>
+</head>
+<body>
+<a class="back-btn" href="mapa.html" onclick="GZ_Audio&&GZ_Audio.btnClick()">◀ MAPA</a>
+<header><h1>GRAVITAÇÃO Z</h1><span class="badge">FASE 3B · O CANHÃO DE NEWTON</span></header>
+<div class="canvas-wrapper">
+  <canvas id="C" width="800" height="550"></canvas>
+  <div id="overlay">
+    <div class="ov-box" id="ov-inner">
+      <div class="ov-title" id="ov-title">🍎 O CANHÃO DE NEWTON</div>
+      <div class="ov-text" id="ov-text">
+        Newton imaginou um canhão no topo de uma montanha.<br>
+        Com pouca pólvora → a bala cai de volta.<br>
+        Com pólvora demais → escapa para o espaço.<br>
+        Com a velocidade CERTA → entra em <span style="color:#4488ff">órbita!</span><br><br>
+        <span style="color:#ffe566">← →</span> Ajustar ângulo<br>
+        <span style="color:#ffe566">↑ ↓</span> Ajustar impulso<br>
+        <span style="color:#ffe566">ESPAÇO</span> Disparar<br>
+        <span style="color:#ffe566">R</span> Reiniciar disparo<br><br>
+        Acerte a Estação Espacial em órbita!
+      </div>
+      <button class="ov-btn" onclick="iniciarJogo()">▶ COMEÇAR</button>
+    </div>
+  </div>
+</div>
+<script src="shared.js"></script>
+<script src="audio.js"></script>
+<script>
+const C   = document.getElementById('C');
+const ctx = C.getContext('2d');
+const W=800, H=550;
+
+// ── CONSTANTES FÍSICAS ────────────────────────────────
+const TERRA_X = W/2;
+const TERRA_Y = H/2 + 30;
+const TERRA_R = 110;  // raio da Terra em pixels
+const G = 800;        // constante gravitacional do jogo
+const MASSA_TERRA = 1; // massa normalizada
+const DT = 0.016;     // passo de tempo
+const VEL_ORBITAL = Math.sqrt(G / TERRA_R); // velocidade orbital circular na superfície
+
+// Estação espacial
+const ESTACAO_ORBITA = TERRA_R + 90;  // altitude orbital
+const ESTACAO_VEL = Math.sqrt(G / ESTACAO_ORBITA); // velocidade orbital da estação
+
+// ── ESTRELAS ─────────────────────────────────────────
+const STARS = [];
+for(let i=0;i<220;i++) STARS.push({
+  x:Math.random()*W, y:Math.random()*H,
+  r:Math.random()*1.4+.2,
+  t:Math.random()*Math.PI*2, s:Math.random()*.02+.005
+});
+
+// ── ESTADO ───────────────────────────────────────────
+let estado = 'MENU'; // MENU | AJUSTE | SIMULANDO | RESULTADO
+let angulo = 35;      // graus acima do horizonte (0=horizontal, 90=vertical)
+let impulso = 55;     // % de pólvora (0-100)
+let tentativas = 0;
+let maxTentativas = 8;
+let particulas = [];
+let rastro = [];
+let mensagem = '';
+let mensagemTimer = 0;
+let ticks = 0;
+
+// Bala
+let bala = null;
+
+// Estação espacial
+let estacao = {
+  ang: 0,
+  x: 0, y: 0,
+  r: 10,
+};
+
+// Mapeamento impulso → velocidade
+function calcVel(imp){
+  // imp 0-100 → vel 0 a VEL_ESCAPE*1.3
+  const VEL_ESCAPE = Math.sqrt(2*G/TERRA_R);
+  return (imp/100) * VEL_ESCAPE * 1.4;
+}
+
+function iniciarJogo(){
+  document.getElementById('overlay').classList.remove('visible');
+  estado='AJUSTE';
+  tentativas=0;
+  particulas=[];
+  bala=null;
+  rastro=[];
+  GZ_Audio&&GZ_Audio.entradaFase();
+}
+
+function reiniciarDisparo(){
+  if(estado==='SIMULANDO') return;
+  bala=null;
+  rastro=[];
+  estado='AJUSTE';
+  GZ_Audio&&GZ_Audio.btnNav();
+}
+
+function disparar(){
+  if(estado!=='AJUSTE') return;
+  if(tentativas>=maxTentativas){ mostrarFimTentativas(); return; }
+  tentativas++;
+  GZ_Audio&&GZ_Audio.socoForte();
+
+  // Posição do canhão: topo da montanha = polo norte da Terra
+  const cX = TERRA_X;
+  const cY = TERRA_Y - TERRA_R - 18; // topo da montanha
+
+  // Converter ângulo para velocidade XY
+  // 0° = direita/horizontal, positivo gira para cima
+  const angRad = (angulo * Math.PI / 180);
+  const vel = calcVel(impulso);
+  const vx =  Math.cos(angRad) * vel;
+  const vy = -Math.sin(angRad) * vel;
+
+  bala = { x:cX, y:cY, vx, vy, viva:true, t:0 };
+  rastro = [{x:cX, y:cY}];
+  estado = 'SIMULANDO';
+}
+
+// ── FÍSICA ───────────────────────────────────────────
+function atualizarBala(){
+  if(!bala || !bala.viva) return;
+
+  for(let step=0;step<3;step++){
+    // Vetor da bala até o centro da Terra
+    const dx = TERRA_X - bala.x;
+    const dy = TERRA_Y - bala.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    // Lei da Gravitação: F = G*M/r²
+    const acc = G / (dist*dist);
+    const ax = (dx/dist) * acc;
+    const ay = (dy/dist) * acc;
+
+    // Integração de Euler
+    bala.vx += ax * DT;
+    bala.vy += ay * DT;
+    bala.x  += bala.vx * DT;
+    bala.y  += bala.vy * DT;
+    bala.t  += DT;
+
+    // Rastro
+    if(ticks % 2 === 0) rastro.push({x:bala.x, y:bala.y});
+    if(rastro.length > 600) rastro.shift();
+
+    // ── COLISÃO COM A TERRA ──
+    if(dist < TERRA_R + 6){
+      bala.viva = false;
+      estado='RESULTADO';
+      const vel = Math.sqrt(bala.vx*bala.vx + bala.vy*bala.vy);
+      boom(bala.x, bala.y, '#ff8844', 14);
+      GZ_Audio&&GZ_Audio.danoCausado&&GZ_Audio.danoCausado();
+      const VEL_ESCAPE = Math.sqrt(2*G/TERRA_R);
+      if(vel < VEL_ORBITAL*0.7)
+        mostrarResultado('💥 POUCA PÓLVORA!', 'A bala caiu de volta à Terra.\nAumente o impulso!', false);
+      else
+        mostrarResultado('💥 COLIDIU COM A TERRA!', 'Ajuste o ângulo para disparar\nmais longe do horizonte.', false);
+      return;
+    }
+
+    // ── SAIU DA TELA / VELOCIDADE DE ESCAPE ──
+    if(bala.x<-200||bala.x>W+200||bala.y<-200||bala.y>H+200){
+      bala.viva = false;
+      estado='RESULTADO';
+      mostrarResultado('🚀 VELOCIDADE DE ESCAPE!', 'Pólvora demais — a bala escapou\nda gravidade da Terra.\nDiminua o impulso!', false);
+      return;
+    }
+
+    // ── COLISÃO COM A ESTAÇÃO ──
+    const exDist = Math.sqrt((bala.x-estacao.x)**2 + (bala.y-estacao.y)**2);
+    if(exDist < 22){
+      bala.viva = false;
+      estado='RESULTADO';
+      boom(estacao.x, estacao.y, '#4488ff', 20);
+      boom(estacao.x, estacao.y, '#ffe566', 12);
+      GZ_Audio&&GZ_Audio.missaoDesbloqueada&&GZ_Audio.missaoDesbloqueada();
+      mostrarResultado('✦ ÓRBITA ALCANÇADA!', 'A bala interceptou a Estação!\nVocê compreendeu a Órbita de Newton!', true);
+      return;
+    }
+  }
+}
+
+function boom(x,y,cor,n){
+  for(let i=0;i<n;i++) particulas.push({
+    x,y,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6-1,
+    vida:35+Math.random()*15,maxVida:50,cor,r:Math.random()*4+1.5
+  });
+}
+
+function mostrarResultado(titulo, texto, vitoria){
+  setTimeout(()=>{
+    const ov=document.getElementById('overlay');
+    document.getElementById('ov-title').textContent=titulo;
+    document.getElementById('ov-text').innerHTML=texto.replace(/\n/g,'<br>')+
+      (vitoria?'':'<br><br><span style="color:rgba(255,255,255,.4)">Tentativa '+tentativas+' / '+maxTentativas+'</span>');
+    const btn=ov.querySelector('.ov-btn');
+    if(vitoria){
+      btn.textContent='✓ CONTINUAR';
+      btn.onclick=()=>{ const p=carregarProgresso();p.fase3b_completa=true;salvarProgresso(p);window.location.href='mapa.html'; };
+    } else if(tentativas>=maxTentativas){
+      btn.textContent='↺ RECOMEÇAR';
+      btn.onclick=()=>{ tentativas=0;ov.classList.remove('visible');estado='AJUSTE';bala=null;rastro=[];};
+    } else {
+      btn.textContent='↺ TENTAR NOVAMENTE';
+      btn.onclick=()=>{ ov.classList.remove('visible');estado='AJUSTE';bala=null;rastro=[]; };
+    }
+    ov.classList.add('visible');
+  }, vitoria?800:500);
+}
+
+function mostrarFimTentativas(){
+  document.getElementById('ov-title').textContent='✗ SEM TENTATIVAS';
+  document.getElementById('ov-text').innerHTML='Você usou todas as tentativas.<br>Estude as trajetórias e tente novamente!';
+  const btn=document.getElementById('overlay').querySelector('.ov-btn');
+  btn.textContent='↺ RECOMEÇAR';
+  btn.onclick=()=>{ tentativas=0;document.getElementById('overlay').classList.remove('visible');estado='AJUSTE';bala=null;rastro=[]; };
+  document.getElementById('overlay').classList.add('visible');
+}
+
+// ── DESENHO ──────────────────────────────────────────
+
+function desenharFundo(){
+  // Espaço profundo
+  const bg=ctx.createRadialGradient(W/2,H/2,80,W/2,H/2,420);
+  bg.addColorStop(0,'#06091a');bg.addColorStop(1,'#04040e');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  // Estrelas
+  STARS.forEach(s=>{
+    s.t+=s.s;const a=.15+Math.sin(s.t)*.2;
+    ctx.fillStyle=`rgba(200,220,255,${a})`;
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+  });
+}
+
+function desenharTerra(){
+  const cx=TERRA_X, cy=TERRA_Y, R=TERRA_R;
+  // Atmosfera
+  const atm=ctx.createRadialGradient(cx,cy,R*.9,cx,cy,R*1.18);
+  atm.addColorStop(0,'rgba(60,120,255,.0)');
+  atm.addColorStop(.5,'rgba(60,140,255,.15)');
+  atm.addColorStop(1,'rgba(40,80,200,.0)');
+  ctx.fillStyle=atm;ctx.beginPath();ctx.arc(cx,cy,R*1.18,0,Math.PI*2);ctx.fill();
+
+  // Corpo da Terra
+  const gT=ctx.createRadialGradient(cx-R*.3,cy-R*.3,R*.1,cx,cy,R);
+  gT.addColorStop(0,'#2255cc');gT.addColorStop(.4,'#1144aa');gT.addColorStop(1,'#0a2060');
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.fillStyle=gT;ctx.fill();
+
+  // Continentes pixel art
+  ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.clip();
+  const continentes=[
+    [cx-40,cy-10,32,22],[cx-20,cy+15,24,18],  // América
+    [cx+18,cy-18,28,20],[cx+30,cy+8,22,16],    // Europa/África
+    [cx+55,cy-10,20,18],[cx+60,cy+15,16,12],   // Ásia
+    [cx-60,cy+20,14,10],                        // extra
+  ];
+  continentes.forEach(([lx,ly,lw,lh])=>{
+    const gc=ctx.createRadialGradient(lx,ly,2,lx,ly,lw);
+    gc.addColorStop(0,'#22aa44');gc.addColorStop(1,'#116633');
+    ctx.beginPath();ctx.ellipse(lx,ly,lw,lh,0,0,Math.PI*2);ctx.fillStyle=gc;ctx.fill();
+  });
+  // Nuvens
+  [[cx-25,cy-35,18,6],[cx+30,cy+30,22,7],[cx-50,cy+10,16,5]].forEach(([nx,ny,nw,nh])=>{
+    ctx.beginPath();ctx.ellipse(nx,ny,nw,nh,0,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.22)';ctx.fill();
+  });
+  ctx.restore();
+
+  // Brilho polar
+  ctx.beginPath();ctx.arc(cx-R*.3,cy-R*.3,R*.28,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,.08)';ctx.fill();
+}
+
+function desenharMontanhaECanhao(){
+  const cx=TERRA_X, cy=TERRA_Y-TERRA_R;
+  // Montanha pixel art
+  const pts=[
+    [cx-28,cy],[cx-18,cy-12],[cx-10,cy-20],[cx-4,cy-28],[cx,cy-36],
+    [cx+4,cy-28],[cx+10,cy-20],[cx+18,cy-12],[cx+28,cy]
+  ];
+  ctx.fillStyle='#445533';
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  pts.forEach(([x,y])=>ctx.lineTo(x,y));ctx.closePath();ctx.fill();
+  // Neve no topo
+  ctx.fillStyle='#eeeeff';
+  ctx.beginPath();ctx.moveTo(cx-6,cy-22);ctx.lineTo(cx,cy-36);ctx.lineTo(cx+6,cy-22);ctx.closePath();ctx.fill();
+
+  // Canhão
+  const baseX=cx, baseY=cy-36;
+  const angRad=angulo*Math.PI/180;
+  const cLen=28;
+  // Base do canhão
+  ctx.fillStyle='#886633';
+  ctx.beginPath();ctx.arc(baseX,baseY,6,0,Math.PI*2);ctx.fill();
+  // Cano
+  ctx.save();ctx.translate(baseX,baseY);ctx.rotate(-angRad);
+  const grad=ctx.createLinearGradient(0,-4,0,4);
+  grad.addColorStop(0,'#ddaa44');grad.addColorStop(1,'#884422');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,-4,cLen,8);
+  ctx.fillStyle='#cccc44';ctx.beginPath();ctx.arc(cLen,0,5,0,Math.PI*2);ctx.fill();
+  // Abertura do cano
+  ctx.fillStyle='#221100';ctx.beginPath();ctx.arc(cLen,0,3,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function desenharEstacao(){
+  const ex=estacao.x, ey=estacao.y;
+  const bob=Math.sin(ticks*.04)*.5;
+
+  ctx.save();
+  // Glow
+  const glow=ctx.createRadialGradient(ex,ey+bob,2,ex,ey+bob,28);
+  glow.addColorStop(0,'rgba(80,140,255,.25)');glow.addColorStop(1,'transparent');
+  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(ex,ey+bob,28,0,Math.PI*2);ctx.fill();
+
+  ctx.translate(ex,ey+bob);
+  // Corpo central
+  ctx.fillStyle='#ccd4e0';ctx.fillRect(-11,-6,22,12);
+  ctx.fillStyle='#dde4f0';ctx.beginPath();ctx.arc(0,0,6,0,Math.PI*2);ctx.fill();
+  // Janela
+  ctx.fillStyle='rgba(80,160,255,.8)';ctx.beginPath();ctx.arc(0,0,2.5,0,Math.PI*2);ctx.fill();
+  // Painéis solares
+  [[-22,-8],[-22,2],[10,-8],[10,2]].forEach(([px,py])=>{
+    ctx.fillStyle='#1a3a88';ctx.fillRect(px,py,10,6);
+    ctx.fillStyle='#2255cc';ctx.fillRect(px+1,py+1,8,4);
+    ctx.strokeStyle='rgba(100,160,255,.4)';ctx.lineWidth=.5;
+    for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(px+i*3.5,py);ctx.lineTo(px+i*3.5,py+6);ctx.stroke();}
+  });
+  // Hastes
+  ctx.strokeStyle='#889aaa';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(-11,0);ctx.lineTo(-22,0);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(22,0);ctx.stroke();
+  ctx.restore();
+}
+
+function desenharOrbita(){
+  // Órbita da estação
+  ctx.save();
+  ctx.strokeStyle='rgba(60,100,200,.18)';ctx.lineWidth=1;ctx.setLineDash([3,8]);
+  ctx.beginPath();ctx.arc(TERRA_X,TERRA_Y,ESTACAO_ORBITA,0,Math.PI*2);ctx.stroke();
+  ctx.setLineDash([]);ctx.restore();
+}
+
+function desenharRastro(){
+  if(rastro.length<2) return;
+  for(let i=1;i<rastro.length;i++){
+    const a=i/rastro.length;
+    ctx.beginPath();ctx.moveTo(rastro[i-1].x,rastro[i-1].y);ctx.lineTo(rastro[i].x,rastro[i].y);
+    ctx.strokeStyle=`rgba(255,200,80,${a*.8})`;ctx.lineWidth=a*2.5;ctx.stroke();
+  }
+}
+
+function desenharBala(){
+  if(!bala||!bala.viva) return;
+  ctx.save();
+  ctx.shadowBlur=10;ctx.shadowColor='#ffaa44';
+  ctx.fillStyle='#ddaa33';
+  ctx.beginPath();ctx.arc(bala.x,bala.y,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffdd88';
+  ctx.beginPath();ctx.arc(bala.x-1,bala.y-1,2,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function desenharHUD(){
+  // Painel inferior
+  ctx.fillStyle='rgba(0,0,0,.75)';ctx.fillRect(0,H-82,W,82);
+  ctx.strokeStyle='rgba(68,136,255,.2)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,H-82);ctx.lineTo(W,H-82);ctx.stroke();
+
+  // Título da fase
+  ctx.font="8px 'Press Start 2P'";ctx.fillStyle='#4488ff';ctx.textAlign='center';
+  ctx.fillText('O CANHÃO DE NEWTON — F = G·M·m/r²',W/2,H-65);
+
+  // ── ÂNGULO ──────────────────────────────────────────
+  const bX=60;
+  ctx.font="7px 'Press Start 2P'";ctx.fillStyle='#aabbcc';ctx.textAlign='left';
+  ctx.fillText('ÂNGULO',bX,H-48);
+  ctx.font="11px 'Orbitron'";ctx.fillStyle='#ffe566';
+  ctx.fillText(angulo+'°',bX,H-32);
+  // Arc visual do ângulo
+  ctx.save();ctx.translate(bX+80,H-38);
+  ctx.strokeStyle='rgba(255,229,100,.2)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(0,0,22,Math.PI,0);ctx.stroke();
+  ctx.strokeStyle='#ffe566';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(0,0);
+  ctx.lineTo(Math.cos(-angulo*Math.PI/180)*22, Math.sin(-angulo*Math.PI/180)*22);ctx.stroke();
+  ctx.fillStyle='#ffe566';ctx.beginPath();ctx.arc(0,0,3,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+  // Barra ângulo
+  ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(bX,H-22,130,8);
+  ctx.fillStyle='#ffe566';ctx.fillRect(bX,H-22,(angulo/90)*130,8);
+  ctx.strokeStyle='rgba(255,229,100,.3)';ctx.lineWidth=1;ctx.strokeRect(bX,H-22,130,8);
+  ctx.font="6px 'Share Tech Mono'";ctx.fillStyle='rgba(255,229,100,.5)';ctx.textAlign='left';
+  ctx.fillText('← 0°          90° →',bX,H-8);
+
+  // ── IMPULSO ─────────────────────────────────────────
+  const iX=280;
+  ctx.font="7px 'Press Start 2P'";ctx.fillStyle='#aabbcc';ctx.textAlign='left';
+  ctx.fillText('IMPULSO',iX,H-48);
+  const VEL_ESCAPE=Math.sqrt(2*G/TERRA_R);
+  const vel=calcVel(impulso);
+  const pct=impulso;
+  let velColor = pct<30?'#44eebb':pct<55?'#4488ff':pct<75?'#ffe566':'#ff4444';
+  ctx.font="11px 'Orbitron'";ctx.fillStyle=velColor;
+  ctx.fillText(impulso+'%',iX,H-32);
+  // Barra impulso
+  ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(iX,H-22,180,8);
+  // Gradiente da barra
+  const barGrad=ctx.createLinearGradient(iX,0,iX+180,0);
+  barGrad.addColorStop(0,'#44eebb');barGrad.addColorStop(.45,'#4488ff');
+  barGrad.addColorStop(.65,'#ffe566');barGrad.addColorStop(1,'#ff4444');
+  ctx.fillStyle=barGrad;ctx.fillRect(iX,H-22,(impulso/100)*180,8);
+  ctx.strokeStyle='rgba(68,136,255,.3)';ctx.lineWidth=1;ctx.strokeRect(iX,H-22,180,8);
+  // Marcador de vel orbital
+  const vOrbPct=(VEL_ORBITAL/calcVel(100))*100;
+  const markX=iX+(vOrbPct/100)*180;
+  ctx.strokeStyle='rgba(68,255,68,.7)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(markX,H-24);ctx.lineTo(markX,H-13);ctx.stroke();
+  ctx.font="5px 'Share Tech Mono'";ctx.fillStyle='rgba(68,255,68,.7)';ctx.textAlign='center';
+  ctx.fillText('VO',markX,H-8);
+  // Marcador de vel escape
+  const vEscPct=(VEL_ESCAPE/calcVel(100))*100;
+  const markX2=iX+(vEscPct/100)*180;
+  ctx.strokeStyle='rgba(255,68,68,.7)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(markX2,H-24);ctx.lineTo(markX2,H-13);ctx.stroke();
+  ctx.fillStyle='rgba(255,68,68,.7)';ctx.textAlign='center';
+  ctx.fillText('VE',markX2,H-8);
+  // Legenda
+  ctx.font="6px 'Share Tech Mono'";ctx.fillStyle='rgba(255,255,255,.3)';ctx.textAlign='left';
+  ctx.fillText('VO=orbital  VE=escape',iX,H-48+12);
+
+  // ── TENTATIVAS ───────────────────────────────────────
+  const tX=500;
+  ctx.font="7px 'Press Start 2P'";ctx.fillStyle='#aabbcc';ctx.textAlign='left';
+  ctx.fillText('TENTATIVAS',tX,H-48);
+  for(let i=0;i<maxTentativas;i++){
+    ctx.fillStyle=i<tentativas?'rgba(68,136,255,.25)':'rgba(68,136,255,.6)';
+    ctx.beginPath();ctx.arc(tX+i*16,H-34,5,0,Math.PI*2);ctx.fill();
+    if(i>=tentativas){ctx.strokeStyle='#4488ff';ctx.lineWidth=1;ctx.stroke();}
+  }
+  ctx.font="6px 'Share Tech Mono'";ctx.fillStyle='rgba(100,150,200,.5)';ctx.textAlign='left';
+  ctx.fillText((maxTentativas-tentativas)+' restantes',tX,H-18);
+
+  // ── INSTRUÇÃO ────────────────────────────────────────
+  ctx.font="6px 'Press Start 2P'";ctx.fillStyle='rgba(255,229,100,.55)';ctx.textAlign='center';
+  if(estado==='AJUSTE')
+    ctx.fillText('← → ÂNGULO  |  ↑ ↓ IMPULSO  |  ESPAÇO DISPARAR',W/2,H-48);
+  else if(estado==='SIMULANDO')
+    ctx.fillText('SIMULANDO TRAJETÓRIA...  |  R para reiniciar',W/2,H-48);
+
+  // ── INDICADOR DE TIPO ────────────────────────────────
+  const vel2 = calcVel(impulso);
+  const VEsc = Math.sqrt(2*G/TERRA_R);
+  let tipoLabel='';
+  if(vel2 < VEL_ORBITAL*0.5) tipoLabel='🌍 PARÁBOLA — vai cair!';
+  else if(vel2 < VEL_ORBITAL*0.95) tipoLabel='🔴 SUBORBITAL — insuficiente';
+  else if(vel2 < VEL_ORBITAL*1.05) tipoLabel='✦ VELOCIDADE ORBITAL!';
+  else if(vel2 < VEsc*0.98) tipoLabel='🟡 ÓRBITA ELÍPTICA';
+  else if(vel2 < VEsc*1.02) tipoLabel='🚀 VELOCIDADE DE ESCAPE!';
+  else tipoLabel='💫 HIPÉRBOLE — vai fugir!';
+  ctx.font="7px 'Share Tech Mono'";ctx.fillStyle=velColor;ctx.textAlign='right';
+  ctx.fillText(tipoLabel,W-16,H-65);
+}
+
+// ── CONTROLES ────────────────────────────────────────
+const keys={};
+window.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+  if(e.key==='r'||e.key==='R') reiniciarDisparo();
+  if(e.key===' ') disparar();
+});
+window.addEventListener('keyup',e=>keys[e.key]=false);
+
+function processarControles(){
+  if(estado!=='AJUSTE') return;
+  if(keys['ArrowLeft'])  angulo=Math.max(0, angulo-0.5);
+  if(keys['ArrowRight']) angulo=Math.min(89,angulo+0.5);
+  if(keys['ArrowUp'])    impulso=Math.min(100,impulso+0.4);
+  if(keys['ArrowDown'])  impulso=Math.max(1,  impulso-0.4);
+  angulo=Math.round(angulo*10)/10;
+  impulso=Math.round(impulso*10)/10;
+}
+
+// ── LOOP ─────────────────────────────────────────────
+document.getElementById('overlay').classList.add('visible');
+ticks=0;
+function loop(){
+  ticks++;
+  ctx.clearRect(0,0,W,H);
+
+  desenharFundo();
+  desenharOrbita();
+
+  // Atualizar estação
+  const velEst = ESTACAO_VEL/ESTACAO_ORBITA;
+  estacao.ang += velEst * DT * 2;
+  estacao.x = TERRA_X + Math.cos(estacao.ang) * ESTACAO_ORBITA;
+  estacao.y = TERRA_Y + Math.sin(estacao.ang) * ESTACAO_ORBITA;
+
+  desenharTerra();
+  desenharMontanhaECanhao();
+  desenharEstacao();
+  desenharRastro();
+  desenharBala();
+
+  processarControles();
+  if(estado==='SIMULANDO') atualizarBala();
+
+  // Partículas
+  particulas.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.06;p.vida--;});
+  particulas=particulas.filter(p=>p.vida>0);
+  particulas.forEach(p=>{
+    ctx.save();ctx.globalAlpha=p.vida/p.maxVida;
+    ctx.fillStyle=p.cor;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  });
+
+  desenharHUD();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

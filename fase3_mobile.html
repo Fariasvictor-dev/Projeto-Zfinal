@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<title>Gravitação Z — Missão 3: A Maçã de Newton</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:#04040e;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    min-height:100vh;
+    font-family:'Share Tech Mono',monospace;
+    color:#c8d8e8;overflow:hidden;
+  }
+  body::before{
+    content:'';position:fixed;inset:0;
+    background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);
+    pointer-events:none;z-index:999;
+  }
+  header{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+  header h1{
+    font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.35rem;
+    letter-spacing:.3em;text-transform:uppercase;
+    color:#ffe566;text-shadow:0 0 10px #ffe566,0 0 22px #ff9900;
+  }
+  .badge{font-size:.55rem;letter-spacing:.15em;padding:2px 8px;border:1px solid #00e5ff;color:#00e5ff}
+  .canvas-wrapper{position:relative;border:2px solid #1e2a3a;box-shadow:0 0 50px rgba(100,60,220,.18)}
+  canvas{display:block}
+  .hint{margin-top:8px;font-size:.6rem;color:#4a5a6a;letter-spacing:.1em}
+
+  /* ══════════════════════════════════════════
+     CAIXA DE DIÁLOGO — ESTILO RPG PIXEL ART
+  ══════════════════════════════════════════ */
+  #dialogue-overlay{
+    display:none;
+    position:absolute;
+    bottom:0; left:0; right:0;
+    height:148px;
+    z-index:25;
+    animation:dlgIn .18s ease;
+  }
+  @keyframes dlgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  #dialogue-overlay.visible{display:block}
+
+  /* moldura externa — borda escura grossa */
+  .dlg-frame{
+    position:absolute;inset:0;
+    background:#1a1208;
+    border-top:4px solid #1a1208;
+  }
+  /* moldura interna — dourado pixel */
+  .dlg-inner{
+    position:absolute;
+    inset:5px;
+    background:linear-gradient(180deg,#e8d08a 0%,#c8a840 4px,#f5e6b0 4px,#f0dea0 100%);
+    border:3px solid #8b6914;
+    box-shadow:inset 0 0 0 2px #f5e8b8, inset 0 0 0 4px #a07820;
+    display:flex;align-items:stretch;
+  }
+
+  /* cantos decorativos pixel */
+  .dlg-inner::before,.dlg-inner::after{
+    content:'◆';
+    position:absolute;
+    font-size:14px;color:#8b6914;
+    line-height:1;
+    top:4px;
+  }
+  .dlg-inner::before{left:6px}
+  .dlg-inner::after{right:6px}
+
+  /* avatar esquerdo */
+  .dlg-avatar-wrap{
+    width:110px;flex-shrink:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    padding:6px 8px 0;
+    position:relative;
+  }
+  #avatar-canvas{
+    width:90px;height:90px;
+    image-rendering:pixelated;
+    border:3px solid #8b6914;
+    background:#0a0814;
+    box-shadow:inset 0 0 8px rgba(0,0,0,.6), 0 0 0 2px #c8a840;
+  }
+  .dlg-avatar-name{
+    font-family:'Press Start 2P',monospace;
+    font-size:5.5px;
+    color:#3a2200;
+    margin-top:4px;
+    text-align:center;
+    letter-spacing:.05em;
+    max-width:90px;
+    word-break:break-all;
+  }
+
+  /* separador vertical */
+  .dlg-sep{
+    width:4px;
+    background:repeating-linear-gradient(180deg,#8b6914 0,#8b6914 4px,#c8a840 4px,#c8a840 8px);
+    margin:8px 0;
+    flex-shrink:0;
+  }
+
+  /* área de texto */
+  .dlg-text-area{
+    flex:1;
+    display:flex;flex-direction:column;
+    justify-content:center;
+    padding:10px 16px 10px 12px;
+    position:relative;
+  }
+
+  /* faixa do título do falante */
+  .dlg-speaker-bar{
+    display:inline-block;
+    background:#1a0c00;
+    border:2px solid #8b6914;
+    box-shadow:2px 2px 0 #3a2200;
+    padding:3px 12px 3px 8px;
+    margin-bottom:8px;
+    align-self:flex-start;
+  }
+  .dlg-speaker-name{
+    font-family:'Press Start 2P',monospace;
+    font-size:8px;
+    color:#ffe566;
+    text-shadow:1px 1px 0 #884400, 0 0 8px rgba(255,180,0,.5);
+    letter-spacing:.12em;
+  }
+
+  /* texto do diálogo */
+  #speaker-message{
+    font-family:'Press Start 2P',monospace;
+    font-size:7.5px;
+    line-height:1.85;
+    color:#1a0c00;
+    text-shadow:.5px .5px 0 rgba(255,255,255,.3);
+  }
+
+  /* seta "continuar" */
+  .dlg-arrow{
+    position:absolute;
+    bottom:8px;right:14px;
+    font-size:12px;color:#8b4500;
+    animation:arrowBlink 1s steps(1) infinite;
+    transition:opacity .25s ease;
+  }
+  @keyframes arrowBlink{50%{opacity:0}}
+
+  /* avatar direito (opcional, vilões) */
+  .dlg-avatar-right{
+    width:110px;flex-shrink:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    padding:6px 8px 0;
+  }
+  #avatar-canvas-r{
+    width:90px;height:90px;
+    image-rendering:pixelated;
+    border:3px solid #8b6914;
+    background:#0a0814;
+    box-shadow:inset 0 0 8px rgba(0,0,0,.6), 0 0 0 2px #c8a840;
+  }
+  .dlg-avatar-name-r{
+    font-family:'Press Start 2P',monospace;
+    font-size:5.5px;color:#3a2200;
+    margin-top:4px;text-align:center;max-width:90px;word-break:break-all;
+  }
+
+  /* ══ BANNER VITÓRIA ══ */
+  #victory-banner{
+    position:absolute;inset:0;background:rgba(0,0,0,.85);
+    display:none;align-items:center;justify-content:center;
+    flex-direction:column;z-index:40;
+  }
+  #victory-banner.visible{display:flex;animation:fadeIn .4s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .victory-inner{
+    border:3px solid #ffe566;background:rgba(8,8,22,.98);
+    padding:30px 44px;text-align:center;
+    box-shadow:0 0 40px rgba(255,229,100,.25), inset 0 0 30px rgba(0,0,0,.5);
+  }
+  .victory-title{
+    font-family:'Orbitron',sans-serif;font-size:1.15rem;
+    color:#ffe566;text-shadow:0 0 20px #ff9900;
+    letter-spacing:.25em;margin-bottom:14px;
+  }
+  .victory-item{font-size:.72rem;color:#00e5ff;line-height:1.75;margin-bottom:20px}
+  .victory-btn{
+    font-family:'Press Start 2P',monospace;font-size:.6rem;
+    background:transparent;border:2px solid #ffe566;
+    color:#ffe566;padding:10px 22px;cursor:pointer;letter-spacing:.15em;transition:.2s;
+  }
+  .victory-btn:hover{background:rgba(255,229,100,.12);box-shadow:0 0 12px rgba(255,229,100,.4)}
+</style>
+<style>
+.badge{font-size:.55rem;letter-spacing:.15em;padding:2px 8px;border:1px solid #ff4081;color:#ff4081}
+.back-btn{position:fixed;top:12px;left:14px;font-family:'Press Start 2P',monospace;font-size:.5rem;color:#2a4a6a;text-decoration:none;letter-spacing:.1em;border:1px solid #1a2a3a;padding:5px 10px;z-index:50;transition:.2s;}
+.back-btn:hover{color:#ff4081;border-color:#ff4081}
+</style>
+<style id="gz-mobile-style">
+  @media (max-width: 880px), (pointer: coarse) {
+    body{
+      padding: 0 !important;
+      justify-content: flex-start !important;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    header{
+      margin-top: env(safe-area-inset-top, 8px);
+      transform: scale(0.62);
+      transform-origin: top center;
+      margin-bottom: -10px;
+    }
+    .hint{ display:none; }
+    .back-btn{
+      font-size: .42rem !important;
+      padding: 4px 8px !important;
+      top: env(safe-area-inset-top, 6px) !important;
+      left: 6px !important;
+      z-index: 1000 !important;
+    }
+    #gz-scale-outer{
+      width: 100%;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      overflow: hidden;
+    }
+    .canvas-wrapper{
+      transform-origin: top center;
+      flex-shrink: 0;
+    }
+    #gz-touch-controls{
+      position: fixed;
+      left:0; right:0; bottom:0;
+      display:flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom,0px));
+      z-index: 999;
+      pointer-events:none;
+      gap: 8px;
+    }
+    #gz-touch-controls.hidden{ display:none; }
+    .gz-dpad{
+      display:grid;
+      grid-template-columns: 50px 50px 50px;
+      grid-template-rows: 50px 50px;
+      gap:5px;
+      pointer-events:auto;
+    }
+    .gz-dpad .gz-btn{ grid-row: 2; }
+    .gz-dpad .gz-up{ grid-row:1; grid-column:2; }
+    .gz-extra{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:auto;
+      align-items:center;
+    }
+    .gz-actions{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:auto;
+      align-items:center;
+    }
+    .gz-btn{
+      width:50px;height:50px;
+      border-radius:14px;
+      border:2px solid #ffe566;
+      background:rgba(10,10,25,.78);
+      color:#ffe566;
+      font-family:'Press Start 2P',monospace;
+      font-size:1rem;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 10px rgba(255,229,100,.25);
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    .gz-btn:active, .gz-btn.gz-pressed{
+      background:rgba(255,229,100,.28);
+      box-shadow:0 0 16px rgba(255,229,100,.6);
+    }
+    .gz-btn.gz-action{
+      width:72px;height:72px;
+      border-radius:50%;
+      border-color:#ff6688;
+      color:#ff6688;
+      font-size:.6rem;
+    }
+    .gz-btn.gz-secondary{
+      width:50px;height:50px;
+      border-radius:50%;
+      border-color:#4488ff;
+      color:#4488ff;
+      font-size:.5rem;
+    }
+    .gz-btn.gz-esc{
+      width:42px;height:42px;
+      border-radius:8px;
+      border-color:#888;
+      color:#aaa;
+      font-size:.42rem;
+    }
+    #gz-fullscreen-btn{
+      position: fixed;
+      top: env(safe-area-inset-top, 6px);
+      right: 6px;
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      border: 2px solid #ffe566;
+      background: rgba(10,10,25,.78);
+      color: #ffe566;
+      font-size: 1.1rem;
+      display:flex;align-items:center;justify-content:center;
+      z-index: 1000;
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    #dialogue-overlay{ touch-action: none; }
+  }
+  @media (max-width: 400px){
+    .gz-dpad{
+      grid-template-columns: 44px 44px 44px;
+      grid-template-rows: 44px 44px;
+      gap:4px;
+    }
+    .gz-btn{ width:44px; height:44px; font-size:.9rem; }
+    .gz-btn.gz-action{ width:64px; height:64px; font-size:.55rem; }
+    .gz-btn.gz-secondary{ width:44px; height:44px; }
+    .gz-btn.gz-esc{ width:38px; height:38px; }
+  }
+  @media (min-width: 881px) and (pointer: fine){
+    #gz-touch-controls{ display:none !important; }
+  }
+</style>
+</head>
+<body>
+<a class="back-btn" href="mapa_mobile.html" onclick="GZ_Audio&&GZ_Audio.btnClick()">◀ MAPA</a>
+<header>
+  <h1>GRAVITAÇÃO Z</h1>
+  <span class="badge">MISSÃO 3 · A MAÇÃ DE NEWTON</span>
+</header>
+<div class="canvas-wrapper">
+  <canvas id="gameCanvas" width="800" height="550"></canvas>
+
+  <!-- ═══ CAIXA DE DIÁLOGO RPG ═══ -->
+  <div id="dialogue-overlay">
+    <div class="dlg-frame">
+      <div class="dlg-inner">
+
+        <!-- Avatar esquerdo -->
+        <div class="dlg-avatar-wrap">
+          <canvas id="avatar-canvas" width="90" height="90"></canvas>
+          <div class="dlg-avatar-name" id="avatar-name-l"></div>
+        </div>
+
+        <div class="dlg-sep"></div>
+
+        <!-- Texto central -->
+        <div class="dlg-text-area">
+          <div class="dlg-speaker-bar">
+            <span class="dlg-speaker-name" id="speaker-name">—</span>
+          </div>
+          <div id="speaker-message"></div>
+          <div class="dlg-arrow" id="dlg-arrow-el">▼</div>
+        </div>
+
+        <div class="dlg-sep"></div>
+
+        <!-- Avatar direito -->
+        <div class="dlg-avatar-right">
+          <canvas id="avatar-canvas-r" width="90" height="90"></canvas>
+          <div class="dlg-avatar-name-r" id="avatar-name-r"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BANNER VITÓRIA ═══ -->
+  <div id="victory-banner">
+    <div class="victory-inner">
+      <div class="victory-title">✦ VITÓRIA! ✦</div>
+      <div class="victory-item" id="victory-text"></div>
+      <button class="victory-btn" id="victory-btn">VOLTAR AO MAPA</button>
+    </div>
+  </div>
+</div>
+
+
+<p class="hint" id="hint-bar">← → Desvie das maçãs!</p>
+<audio id="bg-music-fase3" src="fase3_music.mp3" loop preload="auto"></audio>
+<script src="shared.js"></script>
+<script src="audio.js"></script>
+<script>
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+
+let estadoJogo="INTRO";
+let estadoAnteriorDialogo="INTRO";
+let progresso=carregarProgresso();
+const STARS=criarStars(W,H);
+
+// ── DIÁLOGO ──────────────────────────────────────────────
+let scriptAtual=[],indiceScript=0,acaoPos=null;
+let dlgCooldown=0;
+function atualizarDlg(){
+  const ov=document.getElementById('dialogue-overlay');
+  if(indiceScript<scriptAtual.length){
+    const f=scriptAtual[indiceScript];
+    ov.classList.add('visible');
+    document.getElementById('speaker-name').textContent=f.quem;
+    document.getElementById('speaker-message').textContent=f.texto;
+    dlgCooldown=22;
+    const arEl=document.getElementById('dlg-arrow-el');
+    if(arEl){arEl.style.opacity='0';setTimeout(()=>{const a=document.getElementById('dlg-arrow-el');if(a)a.style.opacity='1';},400);}
+    desenharAvatarCanvas(document.getElementById('avatar-canvas'),f.quem);
+    document.getElementById('avatar-name-l').textContent=f.quem;
+    const ouv=f.ouvinte||null;
+    if(ouv){desenharAvatarCanvas(document.getElementById('avatar-canvas-r'),ouv);document.getElementById('avatar-name-r').textContent=ouv;}
+    else{document.getElementById('avatar-canvas-r').getContext('2d').clearRect(0,0,90,90);document.getElementById('avatar-name-r').textContent='';}
+  }else{
+    ov.classList.remove('visible');
+    estadoJogo=estadoAnteriorDialogo;
+    const cb=acaoPos;acaoPos=null;if(cb)cb();
+  }
+}
+function dispararHistoria(falas,cb,ouv){
+  scriptAtual=falas;indiceScript=0;acaoPos=cb;
+  if(estadoJogo!=="DIALOGO")estadoAnteriorDialogo=estadoJogo;
+  estadoJogo="DIALOGO";dlgCooldown=35;atualizarDlg();
+}
+
+// ── MISSÃO 3 — DESVIAR MAÇÃS ─────────────────────────────
+let m3={};
+function inicializarM3(){
+  m3={
+    px:W/2,py:460,pVx:0,pW:28,pH:48,frame:0,frameTimer:0,
+    vidas:3,score:0,macsasDesviadas:0,metaDesviar:120,
+    macas:[],spawnTimer:0,spawnIntervalo:90,velocidadeBase:2.6,
+    hitMessages:[
+      'A maçã talvez não te\nensinado nada, mas fez\num belo galo na cabeça!',
+      'Newton ficaria orgulhoso...\ndo galo, não da física!',
+      'Gravidade: 1  Você: 0',
+    ],
+    hitMsgIndex:0,arvoreX:680,arvoreY:260,
+    gameOver:false,venceu:false,fase:'jogando',flashHit:0,tempoJogo:0,
+    particulas:[],textosFlutuantes:[],
+  };
+}
+function spawnMaca(){
+  const x=60+Math.random()*(W-120);
+  const vel=m3.velocidadeBase+Math.random()*1.2+(m3.tempoJogo/1200)*2.2;
+  m3.macas.push({x,y:-20,vel,rot:0,rotVel:(Math.random()-.5)*.15,pega:false,tamanho:14+Math.random()*8});
+}
+function processarM3(t){
+  if(estadoJogo!=="MISSAO_3")return;
+  if(m3.fase!=='jogando')return;
+  m3.tempoJogo++;
+  m3.pVx=0;
+  if(keys['ArrowLeft'])m3.pVx=-5.5;
+  if(keys['ArrowRight'])m3.pVx=5.5;
+  m3.px+=m3.pVx;m3.px=Math.max(20,Math.min(W-20,m3.px));
+  if(m3.pVx!==0){m3.frameTimer++;if(m3.frameTimer>7){m3.frame^=1;m3.frameTimer=0;}}else m3.frame=0;
+  m3.spawnTimer++;
+  const intervalo=Math.max(22,m3.spawnIntervalo-Math.floor(m3.tempoJogo/280));
+  if(m3.spawnTimer>=intervalo){spawnMaca();m3.spawnTimer=0;if(m3.tempoJogo>800&&Math.random()<.28)spawnMaca();if(m3.tempoJogo>1500&&Math.random()<.18)spawnMaca();}
+  m3.macas.forEach(mac=>{mac.y+=mac.vel;mac.rot+=mac.rotVel;});
+  const px=m3.px,py=m3.py;
+  m3.macas.forEach(mac=>{
+    if(mac.pega)return;
+    const dx=mac.x-px,dy=mac.y-(py-m3.pH/2);
+    if(Math.abs(dx)<m3.pW&&Math.abs(dy)<m3.pH/2+mac.tamanho){
+      mac.pega=true;m3.vidas--;m3.flashHit=20;
+      GZ_Audio&&GZ_Audio.socoNormal();
+      for(let i=0;i<8;i++)m3.particulas.push({x:mac.x,y:mac.y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5-2,vida:20,maxVida:20,cor:'#cc2200',r:3+Math.random()*3});
+      const msg=m3.hitMessages[m3.hitMsgIndex%m3.hitMessages.length];m3.hitMsgIndex++;
+      m3.textosFlutuantes.push({x:W/2,y:H/2-40,texto:'AUCH! 🍎',cor:'#ff4444',vida:130,vy:-.3,big:true});
+      m3.textosFlutuantes.push({x:W/2,y:H/2+22,texto:msg,cor:'#ffcc44',vida:150,vy:-.15,big:false,multi:true});
+      if(m3.vidas<=0){m3.fase='morreu';setTimeout(()=>reiniciarM3Jogo(),3500);}
+    }
+  });
+  m3.macas=m3.macas.filter(mac=>{
+    if(!mac.pega&&mac.y>H+30){m3.macsasDesviadas++;m3.score+=10;m3.textosFlutuantes.push({x:mac.x,y:H-60,texto:'+10',cor:'#44eebb',vida:25,vy:-1.2});return false;}
+    return mac.y<=H+30;
+  });
+  if(m3.macsasDesviadas>=m3.metaDesviar&&m3.fase==='jogando'){
+    m3.fase='venceu';
+    setTimeout(()=>{
+      dispararHistoria([
+        {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"Excelente! Você desviou de todas! Mas eu não desviei — deixei a maçã me acertar. E aquele momento de dor... virou iluminação."},
+        {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"Por que a maçã cai PARA BAIXO? Sempre para baixo. Nunca para cima, nunca para o lado. Existe uma força invisível puxando tudo para o centro da Terra."},
+        {quem:"NARRADOR",ouvinte:"ISAAC NEWTON",texto:"Newton olhou para a Lua. Se a mesma força que derruba uma maçã alcançasse a Lua... ela não estaria em queda livre também?"},
+        {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"Exatamente! A Lua está CAINDO em direção à Terra o tempo todo — só que ela também se move para frente rápido o suficiente para nunca pousar. Isso é uma órbita!"},
+        {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"Então formulei: F = G × (m₁ × m₂) / r². Toda massa atrai toda outra massa. A maçã, a Lua, os planetas — tudo conectado por uma só lei!"},
+      ],()=>{
+        progresso.tem_principia=true;progresso.missao3_completa=true;salvarProgresso(progresso);
+        GZ_Audio&&GZ_Audio.vitoria();
+        document.getElementById('victory-text').innerHTML=
+          '📖 <strong style="color:#ffe566">PRINCIPIA MATHEMATICA</strong> adicionado!<br><br>'+
+          '🍎 F = G × (m₁ × m₂) / r² descoberta!<br>'+
+          '🌍 A gravidade conecta a maçã ao cosmos!<br><br>'+
+          '<span style="color:#88ff66">✦ TODAS AS MISSÕES CONCLUÍDAS! ✦</span>';
+        document.getElementById('victory-banner').classList.add('visible');
+        document.getElementById('victory-btn').onclick=()=>{GZ_Audio&&GZ_Audio.btnClick();window.location.href='mapa_mobile.html';};
+        estadoJogo="FASE_3_VITORIA";
+      },"JOGADOR");
+    },600);
+  }
+  m3.particulas.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.2;p.vida--;});
+  m3.particulas=m3.particulas.filter(p=>p.vida>0);
+  m3.textosFlutuantes.forEach(tf=>{tf.y+=tf.vy;tf.vida--;});
+  m3.textosFlutuantes=m3.textosFlutuantes.filter(tf=>tf.vida>0);
+  if(m3.flashHit>0)m3.flashHit--;
+}
+function reiniciarM3Jogo(){
+  m3.vidas=3;m3.macas=[];m3.macsasDesviadas=0;m3.score=0;
+  m3.spawnTimer=0;m3.tempoJogo=0;m3.flashHit=0;m3.fase='jogando';
+  m3.particulas=[];m3.textosFlutuantes=[];m3.px=W/2;
+}
+
+// ── DESENHO M3 ────────────────────────────────────────────
+function desenharArvoreNewton(t){
+  const tx=m3.arvoreX,ty=m3.arvoreY;
+  ctx.fillStyle='#3a2010';ctx.fillRect(tx-12,ty,24,120);ctx.fillStyle='#4a2a14';ctx.fillRect(tx-8,ty+20,6,80);
+  ctx.strokeStyle='#3a2010';ctx.lineWidth=10;
+  ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx-60,ty-60);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx+50,ty-40);ctx.stroke();
+  ctx.lineWidth=6;
+  ctx.beginPath();ctx.moveTo(tx-60,ty-60);ctx.lineTo(tx-90,ty-100);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(tx-60,ty-60);ctx.lineTo(tx-30,ty-95);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(tx+50,ty-40);ctx.lineTo(tx+80,ty-80);ctx.stroke();
+  [[tx,ty-90,55],[tx-65,ty-90,45],[tx+50,ty-75,42],[tx-30,ty-120,38],[tx+20,ty-110,35]].forEach(([cx,cy,cr])=>{
+    const gf=ctx.createRadialGradient(cx,cy,5,cx,cy,cr);gf.addColorStop(0,'#1a5510');gf.addColorStop(1,'#0d3308');
+    ctx.beginPath();ctx.arc(cx,cy,cr,0,Math.PI*2);ctx.fillStyle=gf;ctx.fill();
+  });
+  [[tx-40,ty-100],[tx+30,ty-80],[tx-70,ty-80],[tx+55,ty-95]].forEach(([ax_,ay_])=>{
+    ctx.fillStyle='#aa1800';ctx.beginPath();ctx.arc(ax_,ay_,7,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#cc2200';ctx.beginPath();ctx.arc(ax_-1,ay_-1,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#2a6610';ctx.fillRect(ax_-1,ay_-10,2,5);
+  });
+}
+function desenharMaca(x,y,r,rot){
+  ctx.save();ctx.translate(x,y);ctx.rotate(rot);
+  ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(3,r+2,r*.6,r*.2,0,0,Math.PI*2);ctx.fill();
+  const gm=ctx.createRadialGradient(-r*.25,-r*.25,r*.1,0,0,r);
+  gm.addColorStop(0,'#ff4422');gm.addColorStop(.6,'#cc1100');gm.addColorStop(1,'#881100');
+  ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fillStyle=gm;ctx.fill();
+  ctx.beginPath();ctx.arc(-r*.25,-r*.28,r*.28,0,Math.PI*2);ctx.fillStyle='rgba(255,200,180,.35)';ctx.fill();
+  ctx.fillStyle='#3a2010';ctx.fillRect(-1.5,-r-8,3,10);
+  ctx.fillStyle='#2a6610';ctx.beginPath();ctx.ellipse(4,-r-5,5,3,.5,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+function desenharNewtonJogador(px_,py_,vx,frame,t){
+  const S=2.4,ox=px_,oy=py_,bob=frame===1?-1:0;
+  ctx.save();ctx.translate(ox,oy);if(vx<0)ctx.scale(-1,1);
+  function r(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x*S,(y+bob)*S,w*S,h*S);}
+  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(0,5*S,8*S,2*S,0,0,Math.PI*2);ctx.fill();
+  r(-4,2,8,8,'#1a3a1a');r(-5,3,2,6,'#122a12');r(3,3,2,6,'#122a12');
+  r(-3,-6,6,9,'#ddeebb');r(-4,-7,8,2,'#ccccaa');r(-5,-5,2,7,'#ccccaa');r(3,-5,2,7,'#ccccaa');
+  r(-2,-4,4,3,'rgba(220,200,170,.8)');r(-1,-3,1,1,'#334433');r(1,-3,1,1,'#334433');
+  r(-3,1,6,2,'#ffffff');r(-4,9,8,2,'#443322');
+  if(frame===1){r(-3,11,3,6,'#2a1a0a');r(0,11,3,5,'#2a1a0a');r(-4,17,4,3,'#1a0a00');r(0,16,4,3,'#1a0a00');}
+  else{r(-3,11,3,5,'#2a1a0a');r(0,11,3,6,'#2a1a0a');r(-4,16,4,3,'#1a0a00');r(0,17,4,3,'#1a0a00');}
+  ctx.restore();
+}
+function desenharHUDM3(){
+  ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,58);
+  ctx.strokeStyle='rgba(136,255,102,.15)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,58);ctx.lineTo(W,58);ctx.stroke();
+  ctx.font="8px 'Press Start 2P'";ctx.fillStyle='#88ff66';ctx.textAlign='left';ctx.fillText('VIDAS:',16,22);
+  for(let i=0;i<3;i++){
+    const cheio=i<m3.vidas;
+    ctx.fillStyle=cheio?'#cc2200':'rgba(100,50,50,.4)';ctx.beginPath();ctx.arc(88+i*26,18,9,0,Math.PI*2);ctx.fill();
+    if(cheio){ctx.fillStyle='rgba(255,200,180,.3)';ctx.beginPath();ctx.arc(85+i*26,15,4,0,Math.PI*2);ctx.fill();}
+  }
+  ctx.font="9px 'Orbitron'";ctx.fillStyle='#ffe566';ctx.textAlign='right';ctx.fillText('SCORE  '+m3.score,W-16,22);
+  const prog=m3.macsasDesviadas/m3.metaDesviar;
+  ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(16,32,W-32,12);
+  const gc=ctx.createLinearGradient(16,0,16+(W-32)*prog,0);
+  gc.addColorStop(0,'#44eebb');gc.addColorStop(1,'#88ff66');
+  ctx.fillStyle=gc;ctx.fillRect(16,32,(W-32)*Math.min(prog,1),12);
+  ctx.strokeStyle='rgba(136,255,102,.3)';ctx.lineWidth=1;ctx.strokeRect(16,32,W-32,12);
+  ctx.font="6px 'Press Start 2P'";ctx.fillStyle='rgba(255,255,255,.8)';ctx.textAlign='center';ctx.fillText('DESVIOS: '+m3.macsasDesviadas+' / '+m3.metaDesviar,W/2,41);
+}
+function desenharM3(t){
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#06080e');bg.addColorStop(.55,'#0a1020');bg.addColorStop(.55,'#0d1a08');bg.addColorStop(1,'#081208');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  STARS.forEach(s=>{s.twinkleOffset+=s.twinkleSpeed;const a=.2+Math.sin(s.twinkleOffset)*.28;ctx.fillStyle=`rgba(220,230,255,${a})`;ctx.beginPath();ctx.arc(s.x,s.y*.55,s.r*.85,0,Math.PI*2);ctx.fill();});
+  const luaX=680,luaY=90;
+  ctx.beginPath();ctx.arc(luaX,luaY,28,0,Math.PI*2);ctx.fillStyle='rgba(250,245,200,1)';ctx.fill();
+  ctx.fillStyle='rgba(200,190,150,.4)';ctx.beginPath();ctx.arc(luaX-8,luaY-6,7,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#0d2010';ctx.fillRect(0,480,W,H-480);ctx.fillStyle='#122a14';ctx.fillRect(0,475,W,10);
+  for(let gx=0;gx<W;gx+=8){const gh=3+Math.sin(gx*.3+t*.02)*2;ctx.fillStyle=`rgba(30,80,20,${.3+Math.sin(gx*.5)*.2})`;ctx.fillRect(gx,475-gh,2,gh);}
+  desenharArvoreNewton(t);
+  ctx.font="9px 'Press Start 2P'";ctx.fillStyle='rgba(180,255,120,.6)';ctx.textAlign='center';ctx.fillText('MISSÃO 3 — NEWTON E A MAÇÃ',W/2,22);
+  if(m3.fase==='jogando'||m3.fase==='morreu'||m3.fase==='venceu'){
+    ctx.font="7px 'Press Start 2P'";ctx.fillStyle='rgba(255,229,100,.6)';ctx.textAlign='center';
+    if(m3.fase==='jogando')ctx.fillText('← → Desvie das maçãs!  Desvie '+m3.metaDesviar+' para ganhar',W/2,44);
+    m3.macas.forEach(mac=>{if(!mac.pega)desenharMaca(mac.x,mac.y,mac.tamanho,mac.rot);});
+    if(m3.fase!=='morreu'||Math.floor(t/5)%2===0)desenharNewtonJogador(m3.px,m3.py,m3.pVx,m3.frame,t);
+    if(m3.flashHit>0){ctx.fillStyle=`rgba(255,0,0,${m3.flashHit*.018})`;ctx.fillRect(0,0,W,H);}
+    if(m3.fase==='morreu'){ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,W,H);ctx.font="14px 'Press Start 2P'";ctx.fillStyle='#ff4444';ctx.textAlign='center';ctx.fillText('BATEU A CABEÇA!',W/2,H/2-10);ctx.font="7px 'Press Start 2P'";ctx.fillStyle='rgba(255,255,255,.7)';ctx.fillText('Reiniciando...',W/2,H/2+18);}
+    if(m3.fase==='venceu'){ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(0,0,W,H);ctx.font="12px 'Press Start 2P'";ctx.fillStyle='#88ff66';ctx.textAlign='center';ctx.fillText('✦ NEWTON ILUMINADO! ✦',W/2,H/2);}
+    desenharHUDM3();
+    m3.particulas.forEach(p=>{ctx.globalAlpha=p.vida/p.maxVida;ctx.fillStyle=p.cor;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});ctx.globalAlpha=1;
+    m3.textosFlutuantes.forEach(tf=>{
+      const maxVida=tf.big?55:(tf.multi?80:30);ctx.globalAlpha=Math.min(1,tf.vida/maxVida*2);ctx.textAlign='center';
+      if(tf.big){ctx.font="11px 'Press Start 2P'";ctx.fillStyle=tf.cor;ctx.fillText(tf.texto,tf.x,tf.y);}
+      else if(tf.multi){ctx.font="7px 'Press Start 2P'";ctx.fillStyle=tf.cor;tf.texto.split('\n').forEach((ln,li)=>ctx.fillText(ln,tf.x,tf.y+li*14));}
+      else{ctx.font="9px 'Press Start 2P'";ctx.fillStyle=tf.cor;ctx.fillText(tf.texto,tf.x,tf.y);}
+    });ctx.globalAlpha=1;
+  }
+}
+
+// ── CLIQUE CANVAS ─────────────────────────────────────────
+canvas.addEventListener('mousedown',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*W/rect.width,my=(e.clientY-rect.top)*H/rect.height;
+
+});
+
+// ── CONTROLES ─────────────────────────────────────────────
+const keys={};
+window.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(['ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+  if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){if(dlgCooldown>0)return;GZ_Audio&&GZ_Audio.dialogoAvancar();indiceScript++;atualizarDlg();}
+});
+window.addEventListener('keyup',e=>{keys[e.key]=false;});
+
+// ── INTRO ─────────────────────────────────────────────────
+GZ_Audio.entradaFase();
+
+// ── MÚSICA DE FUNDO DA FASE 3 ──────────────────────────────
+const bgMusicFase3 = document.getElementById('bg-music-fase3');
+bgMusicFase3.volume = 0.30;
+function iniciarMusicaFase3(){
+  bgMusicFase3.play().catch(()=>{});
+  document.removeEventListener('click', iniciarMusicaFase3);
+  document.removeEventListener('keydown', iniciarMusicaFase3);
+  document.removeEventListener('touchstart', iniciarMusicaFase3);
+}
+bgMusicFase3.play().catch(()=>{
+  document.addEventListener('click', iniciarMusicaFase3);
+  document.addEventListener('keydown', iniciarMusicaFase3);
+  document.addEventListener('touchstart', iniciarMusicaFase3);
+});
+window.addEventListener('beforeunload', ()=>{ bgMusicFase3.pause(); });
+
+dispararHistoria([
+  {quem:"NARRADOR",ouvinte:"ISAAC NEWTON",texto:"Você chega à Inglaterra, 1666. Uma jovem maçã pende de um galho. Um homem de peruca observa o céu..."},
+  {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"Ah, visitante! Estava aqui refletindo sobre o movimento dos planetas quando... algo me chamou atenção nesta árvore."},
+  {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"Uma maçã. Caindo. Para baixo. Sempre para baixo. Mas por quê? Por que não para os lados? Por que não para cima?"},
+  {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"E se a Terra... puxasse todas as coisas? Com uma força invisível? E se essa mesma força alcançasse a Lua lá no alto?"},
+  {quem:"NARRADOR",ouvinte:"JOGADOR",texto:"Será que foi assim mesmo? A história é boa demais pra não ser verdade!"},
+  {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"Agora, jovem — prove seus reflexos! As maçãs estão caindo e você precisa DESVIAR. Vá! A ciência não espera!"},
+],()=>{inicializarM3();estadoJogo="MISSAO_3";estadoAnteriorDialogo="MISSAO_3";document.getElementById('hint-bar').textContent='← → Desvie das maçãs! Desvie 120 para revelar a grande descoberta!';}, "ISAAC NEWTON");
+
+// ── LOOP ──────────────────────────────────────────────────
+let ticks=0;
+function loop(){
+  ticks++;if(dlgCooldown>0)dlgCooldown--;
+  ctx.fillStyle='#04040e';ctx.fillRect(0,0,W,H);
+  const emM3=estadoJogo==="MISSAO_3"||(estadoJogo==="DIALOGO"&&estadoAnteriorDialogo==="MISSAO_3")||estadoJogo==="FASE_3_VITORIA";
+  if(emM3){processarM3(ticks);desenharM3(ticks);}
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+<div id="gz-fullscreen-btn" title="Tela cheia">⛶</div>
+<div id="gz-touch-controls">
+  <div class="gz-dpad">
+    <div class="gz-btn gz-up" data-key="ArrowUp">▲</div>
+    <div class="gz-btn gz-left" data-key="ArrowLeft">◀</div>
+    <div class="gz-btn gz-down" data-key="ArrowDown">▼</div>
+    <div class="gz-btn gz-right" data-key="ArrowRight">▶</div>
+  </div>
+  <div class="gz-extra">
+    <div class="gz-btn gz-esc" data-key="Escape" data-tap="1" title="ESC">ESC</div>
+    <div class="gz-btn gz-secondary" data-key="r" data-tap="1" title="R">R</div>
+  </div>
+  <div class="gz-actions">
+    <div class="gz-btn gz-secondary" data-key="Enter" data-tap="1" title="Enter">ENT</div>
+    <div class="gz-btn gz-action" data-key=" " title="Ação">SOCO</div>
+  </div>
+</div>
+
+<script id="gz-mobile-script">
+(function(){
+  // ── 1. Escalonar o canvas-wrapper para caber na tela ──
+  function escalarCanvas(){
+    const wrapper = document.querySelector('.canvas-wrapper');
+    if(!wrapper) return;
+    let outer = document.getElementById('gz-scale-outer');
+    if(!outer){
+      outer = document.createElement('div');
+      outer.id = 'gz-scale-outer';
+      wrapper.parentNode.insertBefore(outer, wrapper);
+      outer.appendChild(wrapper);
+    }
+    const baseW = wrapper.offsetWidth || 800;
+    const baseH = wrapper.offsetHeight || 550;
+    const availW = window.innerWidth - 8;
+    const isMobile = window.matchMedia('(max-width: 880px), (pointer: coarse)').matches;
+    const reservedBottom = isMobile ? 165 : 0;
+    const reservedTop = isMobile ? 36 : 0;
+    const availH = window.innerHeight - reservedBottom - reservedTop;
+    const scale = Math.min(availW / baseW, availH / baseH, 1);
+    wrapper.style.transform = `scale(${scale})`;
+    wrapper._gzScale = scale;
+    outer.style.height = (baseH * scale) + 'px';
+  }
+  window.addEventListener('resize', escalarCanvas);
+  window.addEventListener('orientationchange', ()=>setTimeout(escalarCanvas,200));
+  document.addEventListener('DOMContentLoaded', escalarCanvas);
+  setTimeout(escalarCanvas, 50);
+  setTimeout(escalarCanvas, 400);
+
+  // ── 2. Disparar eventos de teclado sintéticos ──
+  function dispatchKey(type, key){
+    const ev = new KeyboardEvent(type, {key:key, bubbles:true, cancelable:true});
+    window.dispatchEvent(ev);
+    document.dispatchEvent(ev);
+  }
+
+  function bindBtn(btn){
+    const key = btn.getAttribute('data-key');
+    const isTap = btn.getAttribute('data-tap') === '1';
+
+    function press(e){
+      e.preventDefault();
+      btn.classList.add('gz-pressed');
+      dispatchKey('keydown', key);
+      if(isTap){
+        setTimeout(()=>dispatchKey('keyup', key), 30);
+      }
+    }
+    function release(e){
+      if(e) e.preventDefault();
+      btn.classList.remove('gz-pressed');
+      if(!isTap) dispatchKey('keyup', key);
+    }
+
+    btn.addEventListener('touchstart', press, {passive:false});
+    btn.addEventListener('touchend', release, {passive:false});
+    btn.addEventListener('touchcancel', release, {passive:false});
+    btn.addEventListener('mousedown', press);
+    btn.addEventListener('mouseup', release);
+    btn.addEventListener('mouseleave', release);
+  }
+
+  document.querySelectorAll('#gz-touch-controls .gz-btn').forEach(bindBtn);
+
+  // ── 3. Toque na tela para avançar diálogo (Espaço) ──
+  const wrapperEl = document.querySelector('.canvas-wrapper');
+  if(wrapperEl){
+    wrapperEl.addEventListener('touchend', function(e){
+      const dlg = document.getElementById('dialogue-overlay');
+      if(dlg && dlg.classList.contains('visible')){
+        if(e.target.closest && e.target.closest('#gz-touch-controls')) return;
+        dispatchKey('keydown', ' ');
+        dispatchKey('keyup', ' ');
+      }
+    }, {passive:true});
+  }
+
+  // ── 4. Ponte de toque → eventos de mouse no canvas (drag da luneta etc.) ──
+  function bridgeTouchToMouse(canvas){
+    if(!canvas) return;
+    function touchToMouseEvent(touchEvent, type){
+      const touch = touchEvent.changedTouches[0];
+      if(!touch) return;
+      const scale = wrapperEl ? (wrapperEl._gzScale || 1) : 1;
+      const rect = canvas.getBoundingClientRect();
+      const x = (touch.clientX - rect.left) / scale;
+      const y = (touch.clientY - rect.top) / scale;
+      const mouseEvent = new MouseEvent(type, {
+        clientX: rect.left + x*scale,
+        clientY: rect.top + y*scale,
+        bubbles: true, cancelable: true
+      });
+      canvas.dispatchEvent(mouseEvent);
+    }
+    canvas.addEventListener('touchstart', e=>{ touchToMouseEvent(e,'mousedown'); }, {passive:true});
+    canvas.addEventListener('touchmove', e=>{ touchToMouseEvent(e,'mousemove'); }, {passive:true});
+    canvas.addEventListener('touchend', e=>{ touchToMouseEvent(e,'mouseup'); }, {passive:true});
+  }
+  bridgeTouchToMouse(document.getElementById('gameCanvas'));
+
+  // ── 5. Iniciar áudio no primeiro toque (política de autoplay) ──
+  function iniciarAudioTouch(){
+    if(window.GZ_Audio && typeof GZ_Audio.init==='function'){
+      GZ_Audio.init();
+      GZ_Audio.resume && GZ_Audio.resume();
+    }
+    document.removeEventListener('touchstart', iniciarAudioTouch);
+  }
+  document.addEventListener('touchstart', iniciarAudioTouch, {passive:true});
+
+  // ── 6. Corrigir cutscenes travadas no mobile (autoplay bloqueado) ──
+  // IDs conhecidos de overlays de cutscene em todo o jogo
+  const CUTSCENE_IDS = ['screen-cutscene','cutscene-intro','cutscene-drag4'];
+  const SKIP_BTN_IDS = ['skip-btn','skip-intro-btn','skip-drag4-btn'];
+
+  function cutsceneVisivel(el){
+    if(!el) return false;
+    const cs = getComputedStyle(el);
+    if(cs.display==='none') return false;
+    if(el.id==='screen-cutscene') return el.classList.contains('visible');
+    return true; // cutscene-intro/drag4 usam display flex/none
+  }
+
+  function algumaCutsceneVisivel(){
+    return CUTSCENE_IDS.some(id=>cutsceneVisivel(document.getElementById(id)));
+  }
+
+  // Esconde os controles touch enquanto uma cutscene estiver visível,
+  // pra não bloquear o botão "PULAR" por cima (z-index)
+  function atualizarVisibilidadeControles(){
+    const tc = document.getElementById('gz-touch-controls');
+    if(!tc) return;
+    tc.style.display = algumaCutsceneVisivel() ? 'none' : '';
+  }
+  setInterval(atualizarVisibilidadeControles, 250);
+
+  // Tenta retomar o play dos vídeos de cutscene no primeiro toque
+  // (autoplay sem gesto do usuário costuma falhar/ficar parado)
+  function retomarVideosCutscene(){
+    document.querySelectorAll('#screen-cutscene video, #cutscene-intro video, #cutscene-drag4 video')
+      .forEach(v=>{
+        if(v.paused && v.readyState>0){
+          v.play().catch(()=>{});
+        }
+      });
+  }
+
+  // Toque em qualquer lugar de uma cutscene visível = pular (clica no botão PULAR correspondente)
+  function tapSkipCutscene(e){
+    let pulou = false;
+    CUTSCENE_IDS.forEach((id,i)=>{
+      const el = document.getElementById(id);
+      if(cutsceneVisivel(el)){
+        const btn = document.getElementById(SKIP_BTN_IDS[i]);
+        if(btn){ btn.click(); pulou = true; }
+        else {
+          // fallback: index.html usa video.addEventListener('ended', afterCutscene)
+          const vid = el.querySelector('video');
+          if(vid){
+            vid.dispatchEvent(new Event('ended'));
+            pulou = true;
+          }
+        }
+      }
+    });
+    if(pulou) e.preventDefault();
+  }
+
+  document.addEventListener('touchstart', function(e){
+    retomarVideosCutscene();
+    if(algumaCutsceneVisivel()) tapSkipCutscene(e);
+  }, {passive:false});
+
+  document.addEventListener('touchend', function(e){
+    if(algumaCutsceneVisivel()) tapSkipCutscene(e);
+  }, {passive:false});
+
+  // ── 7. Botão de tela cheia ──
+  const fsBtn = document.getElementById('gz-fullscreen-btn');
+  if(fsBtn){
+    fsBtn.addEventListener('click', function(){
+      const el = document.documentElement;
+      if(!document.fullscreenElement){
+        (el.requestFullscreen && el.requestFullscreen())
+          || (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+      } else {
+        (document.exitFullscreen && document.exitFullscreen())
+          || (document.webkitExitFullscreen && document.webkitExitFullscreen());
+      }
+    });
+    document.addEventListener('fullscreenchange', ()=>setTimeout(escalarCanvas,150));
+    document.addEventListener('webkitfullscreenchange', ()=>setTimeout(escalarCanvas,150));
+  }
+})();
+</script>
+</body>
+</html>

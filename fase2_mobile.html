@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<title>Gravitação Z — Missão 2: Leis de Kepler</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:#04040e;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    min-height:100vh;
+    font-family:'Share Tech Mono',monospace;
+    color:#c8d8e8;overflow:hidden;
+  }
+  body::before{
+    content:'';position:fixed;inset:0;
+    background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);
+    pointer-events:none;z-index:999;
+  }
+  header{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+  header h1{
+    font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.35rem;
+    letter-spacing:.3em;text-transform:uppercase;
+    color:#ffe566;text-shadow:0 0 10px #ffe566,0 0 22px #ff9900;
+  }
+  .badge{font-size:.55rem;letter-spacing:.15em;padding:2px 8px;border:1px solid #00e5ff;color:#00e5ff}
+  .canvas-wrapper{position:relative;border:2px solid #1e2a3a;box-shadow:0 0 50px rgba(100,60,220,.18)}
+  canvas{display:block}
+  .hint{margin-top:8px;font-size:.6rem;color:#4a5a6a;letter-spacing:.1em}
+
+  /* ══════════════════════════════════════════
+     CAIXA DE DIÁLOGO — ESTILO RPG PIXEL ART
+  ══════════════════════════════════════════ */
+  #dialogue-overlay{
+    display:none;
+    position:absolute;
+    bottom:0; left:0; right:0;
+    height:148px;
+    z-index:25;
+    animation:dlgIn .18s ease;
+  }
+  @keyframes dlgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  #dialogue-overlay.visible{display:block}
+
+  /* moldura externa — borda escura grossa */
+  .dlg-frame{
+    position:absolute;inset:0;
+    background:#1a1208;
+    border-top:4px solid #1a1208;
+  }
+  /* moldura interna — dourado pixel */
+  .dlg-inner{
+    position:absolute;
+    inset:5px;
+    background:linear-gradient(180deg,#e8d08a 0%,#c8a840 4px,#f5e6b0 4px,#f0dea0 100%);
+    border:3px solid #8b6914;
+    box-shadow:inset 0 0 0 2px #f5e8b8, inset 0 0 0 4px #a07820;
+    display:flex;align-items:stretch;
+  }
+
+  /* cantos decorativos pixel */
+  .dlg-inner::before,.dlg-inner::after{
+    content:'◆';
+    position:absolute;
+    font-size:14px;color:#8b6914;
+    line-height:1;
+    top:4px;
+  }
+  .dlg-inner::before{left:6px}
+  .dlg-inner::after{right:6px}
+
+  /* avatar esquerdo */
+  .dlg-avatar-wrap{
+    width:110px;flex-shrink:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    padding:6px 8px 0;
+    position:relative;
+  }
+  #avatar-canvas{
+    width:90px;height:90px;
+    image-rendering:pixelated;
+    border:3px solid #8b6914;
+    background:#0a0814;
+    box-shadow:inset 0 0 8px rgba(0,0,0,.6), 0 0 0 2px #c8a840;
+  }
+  .dlg-avatar-name{
+    font-family:'Press Start 2P',monospace;
+    font-size:5.5px;
+    color:#3a2200;
+    margin-top:4px;
+    text-align:center;
+    letter-spacing:.05em;
+    max-width:90px;
+    word-break:break-all;
+  }
+
+  /* separador vertical */
+  .dlg-sep{
+    width:4px;
+    background:repeating-linear-gradient(180deg,#8b6914 0,#8b6914 4px,#c8a840 4px,#c8a840 8px);
+    margin:8px 0;
+    flex-shrink:0;
+  }
+
+  /* área de texto */
+  .dlg-text-area{
+    flex:1;
+    display:flex;flex-direction:column;
+    justify-content:center;
+    padding:10px 16px 10px 12px;
+    position:relative;
+  }
+
+  /* faixa do título do falante */
+  .dlg-speaker-bar{
+    display:inline-block;
+    background:#1a0c00;
+    border:2px solid #8b6914;
+    box-shadow:2px 2px 0 #3a2200;
+    padding:3px 12px 3px 8px;
+    margin-bottom:8px;
+    align-self:flex-start;
+  }
+  .dlg-speaker-name{
+    font-family:'Press Start 2P',monospace;
+    font-size:8px;
+    color:#ffe566;
+    text-shadow:1px 1px 0 #884400, 0 0 8px rgba(255,180,0,.5);
+    letter-spacing:.12em;
+  }
+
+  /* texto do diálogo */
+  #speaker-message{
+    font-family:'Press Start 2P',monospace;
+    font-size:7.5px;
+    line-height:1.85;
+    color:#1a0c00;
+    text-shadow:.5px .5px 0 rgba(255,255,255,.3);
+  }
+
+  /* seta "continuar" */
+  .dlg-arrow{
+    position:absolute;
+    bottom:8px;right:14px;
+    font-size:12px;color:#8b4500;
+    animation:arrowBlink 1s steps(1) infinite;
+    transition:opacity .25s ease;
+  }
+  @keyframes arrowBlink{50%{opacity:0}}
+
+  /* avatar direito (opcional, vilões) */
+  .dlg-avatar-right{
+    width:110px;flex-shrink:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    padding:6px 8px 0;
+  }
+  #avatar-canvas-r{
+    width:90px;height:90px;
+    image-rendering:pixelated;
+    border:3px solid #8b6914;
+    background:#0a0814;
+    box-shadow:inset 0 0 8px rgba(0,0,0,.6), 0 0 0 2px #c8a840;
+  }
+  .dlg-avatar-name-r{
+    font-family:'Press Start 2P',monospace;
+    font-size:5.5px;color:#3a2200;
+    margin-top:4px;text-align:center;max-width:90px;word-break:break-all;
+  }
+
+  /* ══ BANNER VITÓRIA ══ */
+  #victory-banner{
+    position:absolute;inset:0;background:rgba(0,0,0,.85);
+    display:none;align-items:center;justify-content:center;
+    flex-direction:column;z-index:40;
+  }
+  #victory-banner.visible{display:flex;animation:fadeIn .4s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .victory-inner{
+    border:3px solid #ffe566;background:rgba(8,8,22,.98);
+    padding:30px 44px;text-align:center;
+    box-shadow:0 0 40px rgba(255,229,100,.25), inset 0 0 30px rgba(0,0,0,.5);
+  }
+  .victory-title{
+    font-family:'Orbitron',sans-serif;font-size:1.15rem;
+    color:#ffe566;text-shadow:0 0 20px #ff9900;
+    letter-spacing:.25em;margin-bottom:14px;
+  }
+  .victory-item{font-size:.72rem;color:#00e5ff;line-height:1.75;margin-bottom:20px}
+  .victory-btn{
+    font-family:'Press Start 2P',monospace;font-size:.6rem;
+    background:transparent;border:2px solid #ffe566;
+    color:#ffe566;padding:10px 22px;cursor:pointer;letter-spacing:.15em;transition:.2s;
+  }
+  .victory-btn:hover{background:rgba(255,229,100,.12);box-shadow:0 0 12px rgba(255,229,100,.4)}
+</style>
+<style>
+.badge{font-size:.55rem;letter-spacing:.15em;padding:2px 8px;border:1px solid #e5ff00;color:#e5ff00}
+.back-btn{position:fixed;top:12px;left:14px;font-family:'Press Start 2P',monospace;font-size:.5rem;color:#2a4a6a;text-decoration:none;letter-spacing:.1em;border:1px solid #1a2a3a;padding:5px 10px;z-index:50;transition:.2s;}
+.back-btn:hover{color:#e5ff00;border-color:#e5ff00}
+</style>
+<style id="gz-mobile-style">
+  @media (max-width: 880px), (pointer: coarse) {
+    body{
+      padding: 0 !important;
+      justify-content: flex-start !important;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    header{
+      margin-top: env(safe-area-inset-top, 8px);
+      transform: scale(0.62);
+      transform-origin: top center;
+      margin-bottom: -10px;
+    }
+    .hint{ display:none; }
+    .back-btn{
+      font-size: .42rem !important;
+      padding: 4px 8px !important;
+      top: env(safe-area-inset-top, 6px) !important;
+      left: 6px !important;
+      z-index: 1000 !important;
+    }
+    #gz-scale-outer{
+      width: 100%;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      overflow: hidden;
+    }
+    .canvas-wrapper{
+      transform-origin: top center;
+      flex-shrink: 0;
+    }
+    #gz-touch-controls{
+      position: fixed;
+      left:0; right:0; bottom:0;
+      display:flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom,0px));
+      z-index: 999;
+      pointer-events:none;
+      gap: 8px;
+    }
+    #gz-touch-controls.hidden{ display:none; }
+    .gz-dpad{
+      display:grid;
+      grid-template-columns: 50px 50px 50px;
+      grid-template-rows: 50px 50px;
+      gap:5px;
+      pointer-events:auto;
+    }
+    .gz-dpad .gz-btn{ grid-row: 2; }
+    .gz-dpad .gz-up{ grid-row:1; grid-column:2; }
+    .gz-extra{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:auto;
+      align-items:center;
+    }
+    .gz-actions{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:auto;
+      align-items:center;
+    }
+    .gz-btn{
+      width:50px;height:50px;
+      border-radius:14px;
+      border:2px solid #ffe566;
+      background:rgba(10,10,25,.78);
+      color:#ffe566;
+      font-family:'Press Start 2P',monospace;
+      font-size:1rem;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 10px rgba(255,229,100,.25);
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    .gz-btn:active, .gz-btn.gz-pressed{
+      background:rgba(255,229,100,.28);
+      box-shadow:0 0 16px rgba(255,229,100,.6);
+    }
+    .gz-btn.gz-action{
+      width:72px;height:72px;
+      border-radius:50%;
+      border-color:#ff6688;
+      color:#ff6688;
+      font-size:.6rem;
+    }
+    .gz-btn.gz-secondary{
+      width:50px;height:50px;
+      border-radius:50%;
+      border-color:#4488ff;
+      color:#4488ff;
+      font-size:.5rem;
+    }
+    .gz-btn.gz-esc{
+      width:42px;height:42px;
+      border-radius:8px;
+      border-color:#888;
+      color:#aaa;
+      font-size:.42rem;
+    }
+    #gz-fullscreen-btn{
+      position: fixed;
+      top: env(safe-area-inset-top, 6px);
+      right: 6px;
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      border: 2px solid #ffe566;
+      background: rgba(10,10,25,.78);
+      color: #ffe566;
+      font-size: 1.1rem;
+      display:flex;align-items:center;justify-content:center;
+      z-index: 1000;
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    #dialogue-overlay{ touch-action: none; }
+  }
+  @media (max-width: 400px){
+    .gz-dpad{
+      grid-template-columns: 44px 44px 44px;
+      grid-template-rows: 44px 44px;
+      gap:4px;
+    }
+    .gz-btn{ width:44px; height:44px; font-size:.9rem; }
+    .gz-btn.gz-action{ width:64px; height:64px; font-size:.55rem; }
+    .gz-btn.gz-secondary{ width:44px; height:44px; }
+    .gz-btn.gz-esc{ width:38px; height:38px; }
+  }
+  @media (min-width: 881px) and (pointer: fine){
+    #gz-touch-controls{ display:none !important; }
+  }
+</style>
+</head>
+<body>
+<a class="back-btn" href="mapa_mobile.html" onclick="GZ_Audio&&GZ_Audio.btnClick()">◀ MAPA</a>
+<header>
+  <h1>GRAVITAÇÃO Z</h1>
+  <span class="badge">MISSÃO 2 · LEIS DE KEPLER</span>
+</header>
+<!-- ── CUTSCENE ENTRADA FASE 2 ── -->
+<div id="cutscene-intro" style="
+  display:flex;position:fixed;inset:0;z-index:200;
+  background:#000;align-items:center;justify-content:center;flex-direction:column;">
+  <video id="video-intro" src="cutscene_fase2.mp4"
+    style="width:100%;height:100%;object-fit:cover;"
+    playsinline preload="auto" autoplay></video>
+  <div style="position:absolute;bottom:18px;right:20px;
+    font-family:'Press Start 2P',monospace;font-size:.5rem;
+    color:rgba(255,255,255,.45);background:rgba(0,0,0,.45);
+    border:1px solid rgba(255,255,255,.2);padding:6px 12px;
+    cursor:pointer;z-index:5;"
+    id="skip-intro-btn">PULAR ▶▶</div>
+</div>
+
+<!-- ── CUTSCENE PÓS DRAG4 ── -->
+<div id="cutscene-drag4" style="
+  display:none;position:fixed;inset:0;z-index:200;
+  background:#000;align-items:center;justify-content:center;">
+  <video id="video-drag4" src="cutscene_drag4_completo.mp4"
+    style="width:100%;height:100%;object-fit:cover;"
+    playsinline preload="auto"></video>
+  <div style="position:absolute;bottom:18px;right:20px;
+    font-family:'Press Start 2P',monospace;font-size:.5rem;
+    color:rgba(255,255,255,.45);background:rgba(0,0,0,.45);
+    border:1px solid rgba(255,255,255,.2);padding:6px 12px;
+    cursor:pointer;z-id:5;"
+    id="skip-drag4-btn">PULAR ▶▶</div>
+</div>
+
+<div class="canvas-wrapper">
+  <canvas id="gameCanvas" width="800" height="550"></canvas>
+
+  <!-- ═══ CAIXA DE DIÁLOGO RPG ═══ -->
+  <div id="dialogue-overlay">
+    <div class="dlg-frame">
+      <div class="dlg-inner">
+
+        <!-- Avatar esquerdo -->
+        <div class="dlg-avatar-wrap">
+          <canvas id="avatar-canvas" width="90" height="90"></canvas>
+          <div class="dlg-avatar-name" id="avatar-name-l"></div>
+        </div>
+
+        <div class="dlg-sep"></div>
+
+        <!-- Texto central -->
+        <div class="dlg-text-area">
+          <div class="dlg-speaker-bar">
+            <span class="dlg-speaker-name" id="speaker-name">—</span>
+          </div>
+          <div id="speaker-message"></div>
+          <div class="dlg-arrow" id="dlg-arrow-el">▼</div>
+        </div>
+
+        <div class="dlg-sep"></div>
+
+        <!-- Avatar direito -->
+        <div class="dlg-avatar-right">
+          <canvas id="avatar-canvas-r" width="90" height="90"></canvas>
+          <div class="dlg-avatar-name-r" id="avatar-name-r"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BANNER VITÓRIA ═══ -->
+  <div id="victory-banner">
+    <div class="victory-inner">
+      <div class="victory-title">✦ VITÓRIA! ✦</div>
+      <div class="victory-item" id="victory-text"></div>
+      <button class="victory-btn" id="victory-btn">VOLTAR AO MAPA</button>
+    </div>
+  </div>
+</div>
+
+
+<p class="hint" id="hint-bar">Arraste a luneta para encontrar o planeta escondido!</p>
+<script src="shared.js"></script>
+<script src="audio.js"></script>
+<script>
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+
+let estadoJogo="MISSAO_2";
+let estadoAnteriorDialogo="MISSAO_2";
+
+let progresso=carregarProgresso();
+
+// Estrelas e nebulosas via shared.js
+const STARS=criarStars(W,H);
+const nbCanvas=criarNebulas(W,H);
+
+// ── DIÁLOGO ──────────────────────────────────────────────
+let scriptAtual=[],indiceScript=0,acaoPos=null;
+let dlgCooldown=0;
+
+function atualizarDlg(){
+  const ov=document.getElementById('dialogue-overlay');
+  if(indiceScript<scriptAtual.length){
+    const f=scriptAtual[indiceScript];
+    ov.classList.add('visible');
+    document.getElementById('speaker-name').textContent=f.quem;
+    document.getElementById('speaker-message').textContent=f.texto;
+    dlgCooldown=22;
+    const arEl=document.getElementById('dlg-arrow-el');
+    if(arEl){arEl.style.opacity='0';setTimeout(()=>{const a=document.getElementById('dlg-arrow-el');if(a)a.style.opacity='1';},400);}
+    desenharAvatarCanvas(document.getElementById('avatar-canvas'),f.quem);
+    document.getElementById('avatar-name-l').textContent=f.quem;
+    const ouv=f.ouvinte||null;
+    if(ouv){desenharAvatarCanvas(document.getElementById('avatar-canvas-r'),ouv);document.getElementById('avatar-name-r').textContent=ouv;}
+    else{document.getElementById('avatar-canvas-r').getContext('2d').clearRect(0,0,90,90);document.getElementById('avatar-name-r').textContent='';}
+  }else{
+    ov.classList.remove('visible');
+    estadoJogo=estadoAnteriorDialogo;
+    const cb=acaoPos;acaoPos=null;if(cb)cb();
+  }
+}
+function dispararHistoria(falas,cb,ouv){
+  scriptAtual=falas;indiceScript=0;acaoPos=cb;
+  if(estadoJogo!=="DIALOGO")estadoAnteriorDialogo=estadoJogo;
+  estadoJogo="DIALOGO";dlgCooldown=35;atualizarDlg();
+}
+
+// ── DADOS DOS PLANETAS ────────────────────────────────────
+const PLANETAS_4=[
+  {nome:"Mercúrio",cor:"#aaaaaa",r:10,ordemCerta:0},
+  {nome:"Vênus",cor:"#ffcc66",r:14,ordemCerta:1},
+  {nome:"Terra",cor:"#4488ff",r:14,ordemCerta:2},
+  {nome:"Marte",cor:"#ff4422",r:12,ordemCerta:3},
+];
+const PLANETAS_8=[
+  {nome:"Mercúrio",cor:"#aaaaaa",r:9},{nome:"Vênus",cor:"#ffcc66",r:13},
+  {nome:"Terra",cor:"#4488ff",r:13},{nome:"Marte",cor:"#ff4422",r:11},
+  {nome:"Júpiter",cor:"#ffaa55",r:22},{nome:"Saturno",cor:"#eecc88",r:19,ring:true},
+  {nome:"Urano",cor:"#88eeff",r:16},{nome:"Netuno",cor:"#4455ff",r:15},
+];
+
+// ── ESTADO M2 ─────────────────────────────────────────────
+let m2Estado="LUNETA";
+let m2={};
+const gameCanvas2=document.getElementById('gameCanvas');
+
+function inicializarM2(){
+  m2Estado="LUNETA";
+  m2={
+    lunetaX:400,lunetaY:300,lunetaRaio:70,planetaAchado:false,
+    planetaX:520+Math.random()*80,planetaY:200+Math.random()*100,
+    lunetaArrastando:false,
+    drag4:{
+      slots:[0,1,2,3].map(i=>({x:220+i*120,y:360,ocupado:-1})),
+      planetas:PLANETAS_4.map((p,i)=>({...p,id:i,x:180+(i%2)*280,y:160+Math.floor(i/2)*90,dragX:0,dragY:0,arrastando:false,noSlot:-1})),
+      acertou:false,verificado:false,
+    },
+    drag8:{
+      slots:[0,1,2,3,4,5,6,7].map(i=>({x:80+i*90,y:370,ocupado:-1})),
+      planetas:PLANETAS_8.map((p,i)=>({...p,id:i,ordemCerta:i,x:80+(i%4)*170,y:130+Math.floor(i/4)*100,dragX:0,dragY:0,arrastando:false,noSlot:-1})),
+      acertou:false,verificado:false,
+    },
+    dragAtivo:null,mouseX:0,mouseY:0,
+  };
+}
+
+// ── EVENTOS MOUSE ─────────────────────────────────────────
+gameCanvas2.addEventListener('mousedown',e=>{
+  const rect=gameCanvas2.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*gameCanvas2.width/rect.width;
+  const my=(e.clientY-rect.top)*gameCanvas2.height/rect.height;
+  if(estadoJogo!=="MISSAO_2")return;
+  m2.mouseX=mx;m2.mouseY=my;
+  if(m2Estado==="LUNETA"){m2.lunetaArrastando=true;}
+  else if(m2Estado==="DRAG_4"){iniciarDrag(mx,my,m2.drag4,4);}
+  else if(m2Estado==="DRAG_8"){iniciarDrag(mx,my,m2.drag8,8);}
+});
+gameCanvas2.addEventListener('mousemove',e=>{
+  if(estadoJogo!=="MISSAO_2")return;
+  const rect=gameCanvas2.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*gameCanvas2.width/rect.width;
+  const my=(e.clientY-rect.top)*gameCanvas2.height/rect.height;
+  m2.mouseX=mx;m2.mouseY=my;
+  if(m2Estado==="LUNETA"&&m2.lunetaArrastando){
+    m2.lunetaX=mx;m2.lunetaY=my;
+    const dx=mx-m2.planetaX,dy=my-m2.planetaY;
+    if(Math.sqrt(dx*dx+dy*dy)<m2.lunetaRaio-20&&!m2.planetaAchado){
+      m2.planetaAchado=true;
+      GZ_Audio&&GZ_Audio.missaoDesbloqueada();
+      setTimeout(()=>{
+        dispararHistoria([
+          {quem:"NARRADOR",ouvinte:"JOHANNES KEPLER",texto:"Incrível! Através da luneta, você encontrou um planeta escondido na escuridão. A observação científica revela o que os olhos não veem!"},
+          {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Bem-vindo, jovem! Sou Johannes Kepler. Dediquei minha vida a entender as órbitas planetárias. Sabia que elas NÃO são círculos perfeitos?"},
+          {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"São ELIPSES! Com o Sol num dos focos. Essa é minha 1ª Lei. E os planetas mais próximos do Sol orbitam MAIS RÁPIDO — minha 2ª Lei!"},
+          {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Agora prove que aprendeu: arraste os 4 planetas internos para as órbitas na ordem correta de distância do Sol!"},
+        ],()=>{m2Estado="DRAG_4";document.getElementById('hint-bar').textContent='Arraste os planetas para as órbitas na ordem correta!';}, "JOGADOR");
+      },400);
+    }
+  }
+  if(m2.dragAtivo!==null){
+    const ds=m2.dragAtivo.fase===4?m2.drag4:m2.drag8;
+    ds.planetas[m2.dragAtivo.id].dragX=mx;
+    ds.planetas[m2.dragAtivo.id].dragY=my;
+  }
+});
+gameCanvas2.addEventListener('mouseup',e=>{
+  if(estadoJogo!=="MISSAO_2")return;
+  m2.lunetaArrastando=false;
+  if(m2.dragAtivo!==null){
+    const ds=m2.dragAtivo.fase===4?m2.drag4:m2.drag8;
+    soltarPlaneta(ds,m2.dragAtivo.id);
+    m2.dragAtivo=null;
+  }
+  gameCanvas2.style.cursor="default";
+});
+
+function iniciarDrag(mx,my,ds,fase){
+  for(let i=ds.planetas.length-1;i>=0;i--){
+    const p=ds.planetas[i];
+    const px_=p.noSlot>=0?ds.slots[p.noSlot].x:p.x;
+    const py_=p.noSlot>=0?ds.slots[p.noSlot].y:p.y;
+    if(Math.sqrt((mx-px_)**2+(my-py_)**2)<p.r+14){
+      if(p.noSlot>=0){ds.slots[p.noSlot].ocupado=-1;p.noSlot=-1;}
+      p.arrastando=true;p.dragX=mx;p.dragY=my;
+      m2.dragAtivo={fase,id:i};gameCanvas2.style.cursor="grabbing";break;
+    }
+  }
+}
+function soltarPlaneta(ds,id){
+  const p=ds.planetas[id];p.arrastando=false;
+  let melhorSlot=-1,melhorDist=60;
+  ds.slots.forEach((s,si)=>{
+    if(s.ocupado>=0&&s.ocupado!==id)return;
+    const d=Math.sqrt((p.dragX-s.x)**2+(p.dragY-s.y)**2);
+    if(d<melhorDist){melhorDist=d;melhorSlot=si;}
+  });
+  if(melhorSlot>=0){
+    const antigo=ds.slots[melhorSlot].ocupado;
+    if(antigo>=0&&antigo!==id)ds.planetas[antigo].noSlot=-1;
+    ds.slots[melhorSlot].ocupado=id;p.noSlot=melhorSlot;
+    GZ_Audio&&GZ_Audio.btnNav();
+  }
+  if(!ds.verificado)verificarOrdem(ds);
+}
+function verificarOrdem(ds){
+  if(!ds.planetas.every(p=>p.noSlot>=0))return;
+  ds.verificado=true;
+  const acertou=ds.planetas.every(p=>p.noSlot===p.ordemCerta);
+  if(acertou){
+    ds.acertou=true;
+    GZ_Audio&&GZ_Audio.missaoDesbloqueada();
+    if(m2Estado==="DRAG_4"){
+      setTimeout(()=>{
+        dispararHistoria([
+          {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"PERFEITO! Mercúrio, Vênus, Terra, Marte — na ordem certa! Percebe que quanto mais longe do Sol, mais devagar o planeta orbita?"},
+          {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Mas o Sistema Solar tem 8 planetas! Agora ordene TODOS: os 4 gigantes externos também — Júpiter, Saturno, Urano e Netuno!"},
+        ],()=>{
+          // Tocar cutscene antes de avançar para DRAG_8
+          tocarCutsceneDrag4(()=>{
+            m2Estado="DRAG_8";
+            document.getElementById('hint-bar').textContent='Ordene TODOS os 8 planetas do mais próximo ao mais distante!';
+          });
+        }, "JOGADOR");
+      },500);
+    }else if(m2Estado==="DRAG_8"){
+      setTimeout(()=>{
+        dispararHistoria([
+          {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"EXTRAORDINÁRIO! Você ordenou todos os 8 planetas corretamente! As leis que descobri descrevem cada uma dessas órbitas elípticas!"},
+          {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Leve esta Tabela Orbital — ela registra os períodos e distâncias de cada planeta. A Missão 3 está aberta: Newton e a Gravitação Universal aguardam!"},
+          {quem:"SISTEMA",ouvinte:"JOGADOR",texto:"✦ ITEM RECEBIDO: TABELA ORBITAL DE KEPLER ✦  Missão 3 — A Maçã de Newton — DESBLOQUEADA!"},
+        ],()=>{
+          progresso.missao2b_unlocked=true;progresso.tem_tabela_kepler=true;
+          salvarProgresso(progresso);
+          GZ_Audio&&GZ_Audio.vitoria();
+          document.getElementById('victory-text').innerHTML=
+            '🪐 <strong style="color:#ffe566">TABELA ORBITAL DE KEPLER</strong> adicionada!<br><br>'+
+            '🌍 As órbitas elípticas foram confirmadas.<br>'+
+            '⚡ As 3 Leis de Kepler dominadas!<br><br>'+
+            '<span style="color:#ff4081">🗺️ MISSÃO 2B — ÓRBITAS ELÍPTICAS — DESBLOQUEADA!</span>';
+          document.getElementById('victory-banner').classList.add('visible');
+          document.getElementById('victory-btn').onclick=()=>{GZ_Audio&&GZ_Audio.btnClick();window.location.href='mapa_mobile.html';};
+        }, "JOGADOR");
+      },500);
+    }
+  }else{
+    setTimeout(()=>{
+      ds.planetas.forEach(p=>{if(p.noSlot>=0){ds.slots[p.noSlot].ocupado=-1;p.noSlot=-1;}}); 
+      ds.verificado=false;
+      GZ_Audio&&GZ_Audio.derrota();
+      dispararHistoria([{quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Hmm, não está certo! Pense na distância de cada planeta ao Sol. Mercúrio é o mais próximo, Marte o mais distante dos internos. Tente de novo!"}],null,"JOGADOR");
+    },600);
+  }
+}
+
+// ── HELPERS COR ───────────────────────────────────────────
+function lightenColor(hex,amt){let n=parseInt(hex.slice(1),16)||0x888888;return`rgb(${Math.min(255,((n>>16)&255)+amt)},${Math.min(255,((n>>8)&255)+amt)},${Math.min(255,(n&255)+amt)})`;}
+function darkenColor(hex,amt){let n=parseInt(hex.slice(1),16)||0x888888;return`rgb(${Math.max(0,((n>>16)&255)-amt)},${Math.max(0,((n>>8)&255)-amt)},${Math.max(0,(n&255)-amt)})`;}
+
+// ── DESENHO PLANETA DRAG ──────────────────────────────────
+function desenharPlanetaDrag(px_,py_,p){
+  if(p.ring){ctx.save();ctx.translate(px_,py_);ctx.scale(1,.3);ctx.rotate(.2);ctx.beginPath();ctx.arc(0,0,p.r+12,0,Math.PI*2);ctx.strokeStyle='rgba(238,204,136,.5)';ctx.lineWidth=6;ctx.stroke();ctx.restore();}
+  const gp=ctx.createRadialGradient(px_-p.r*.3,py_-p.r*.3,1,px_,py_,p.r);
+  gp.addColorStop(0,lightenColor(p.cor,50));gp.addColorStop(1,darkenColor(p.cor,40));
+  ctx.beginPath();ctx.arc(px_,py_,p.r,0,Math.PI*2);ctx.fillStyle=gp;ctx.fill();
+  ctx.beginPath();ctx.arc(px_-p.r*.25,py_-p.r*.25,p.r*.3,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.2)';ctx.fill();
+  ctx.font="6px 'Press Start 2P'";ctx.fillStyle='rgba(255,255,255,.85)';ctx.textAlign='center';ctx.fillText(p.nome,px_,py_+p.r+11);
+  if(p.arrastando)gameCanvas2.style.cursor='grabbing';
+}
+
+// ── DESENHO LUNETA ────────────────────────────────────────
+function desenharLuneta(t){
+  ctx.font="8px 'Press Start 2P'";ctx.fillStyle='rgba(200,220,255,.7)';ctx.textAlign='center';
+  ctx.fillText('Arraste a luneta pelo céu para encontrar o planeta escondido!',W/2,50);
+  const dx=m2.lunetaX-m2.planetaX,dy=m2.lunetaY-m2.planetaY;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  const dentro=dist<m2.lunetaRaio-15;
+  if(dentro||m2.planetaAchado){
+    ctx.save();
+    ctx.globalAlpha=m2.planetaAchado?1:Math.max(0,1-(dist-(m2.lunetaRaio-40))/25);
+    const gp=ctx.createRadialGradient(m2.planetaX,m2.planetaY,2,m2.planetaX,m2.planetaY,30);
+    gp.addColorStop(0,'rgba(100,200,255,.5)');gp.addColorStop(1,'transparent');
+    ctx.fillStyle=gp;ctx.beginPath();ctx.arc(m2.planetaX,m2.planetaY,30,0,Math.PI*2);ctx.fill();
+    const sp=ctx.createRadialGradient(m2.planetaX-5,m2.planetaY-5,2,m2.planetaX,m2.planetaY,18);
+    sp.addColorStop(0,'#88ccff');sp.addColorStop(1,'#224488');
+    ctx.beginPath();ctx.arc(m2.planetaX,m2.planetaY,18,0,Math.PI*2);ctx.fillStyle=sp;ctx.fill();
+    ctx.restore();
+  }
+  const lx=m2.lunetaX,ly=m2.lunetaY,lr=m2.lunetaRaio;
+  ctx.save();ctx.fillStyle='rgba(2,2,12,.92)';ctx.beginPath();ctx.rect(0,0,W,H);ctx.arc(lx,ly,lr,0,Math.PI*2,true);ctx.fill();ctx.restore();
+  ctx.beginPath();ctx.arc(lx,ly,lr,0,Math.PI*2);ctx.strokeStyle='#8866aa';ctx.lineWidth=5;ctx.stroke();
+  ctx.strokeStyle='rgba(180,140,255,.4)';ctx.lineWidth=2;ctx.stroke();
+  if(!m2.planetaAchado){ctx.beginPath();ctx.arc(lx,ly,lr,0,Math.PI*2);ctx.strokeStyle=`rgba(100,180,255,${.1+Math.sin(t*.08)*.08})`;ctx.lineWidth=lr*2;ctx.stroke();}
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
+  ctx.beginPath();ctx.moveTo(lx-lr,ly);ctx.lineTo(lx+lr,ly);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(lx,ly-lr);ctx.lineTo(lx,ly+lr);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  ctx.save();ctx.translate(lx,ly);ctx.rotate(.4);
+  ctx.fillStyle='#443355';ctx.fillRect(lr-5,-8,60,16);
+  ctx.fillStyle='#6644aa';ctx.fillRect(lr+50,-6,30,12);
+  ctx.fillStyle='#332244';ctx.fillRect(lr-5,-8,8,16);ctx.restore();
+  if(!m2.planetaAchado){ctx.font="7px 'Share Tech Mono'";ctx.fillStyle='rgba(0,229,255,.5)';ctx.textAlign='center';ctx.fillText('Clique e arraste a luneta',W/2,H-15);}
+  else{ctx.font="8px 'Press Start 2P'";ctx.fillStyle='#44eebb';ctx.textAlign='center';ctx.fillText('✦ PLANETA ENCONTRADO! ✦',W/2,H-15);}
+}
+
+// ── DESENHO DRAG4 ─────────────────────────────────────────
+function desenharDrag4(t){
+  const ds=m2.drag4;
+  const cx=W/2,cy=210;
+  const gs=ctx.createRadialGradient(cx,cy,5,cx,cy,45);
+  gs.addColorStop(0,'#fffaaa');gs.addColorStop(.5,'#ffcc00');gs.addColorStop(1,'#ff8800');
+  ctx.beginPath();ctx.arc(cx,cy,35,0,Math.PI*2);ctx.fillStyle=gs;ctx.fill();
+  for(let i=0;i<8;i++){const a=i*Math.PI/4+t*.02;ctx.strokeStyle=`rgba(255,200,0,${.3+Math.sin(t*.05+i)*.15})`;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*38,cy+Math.sin(a)*38);ctx.lineTo(cx+Math.cos(a)*55,cy+Math.sin(a)*55);ctx.stroke();}
+  const orbitas=[{rx:80,ry:22},{rx:140,ry:35},{rx:200,ry:50},{rx:260,ry:62}];
+  orbitas.forEach((o,i)=>{
+    ctx.beginPath();ctx.ellipse(cx,cy,o.rx,o.ry,0,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(100,150,255,${ds.slots[i].ocupado>=0?.6:.3})`;ctx.setLineDash([4,6]);ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+    ctx.font="7px 'Press Start 2P'";ctx.fillStyle='rgba(100,150,255,.5)';ctx.textAlign='center';ctx.fillText(i+1+'ª',cx+o.rx+14,cy+4);
+  });
+  ds.slots.forEach((s,i)=>{
+    const o=orbitas[i];s.x=cx+o.rx;s.y=cy;
+    ctx.beginPath();ctx.arc(s.x,s.y,18,0,Math.PI*2);
+    ctx.strokeStyle=s.ocupado>=0?'rgba(68,238,187,.8)':'rgba(255,255,255,.25)';ctx.lineWidth=2;ctx.stroke();
+    if(s.ocupado<0){ctx.font="7px 'Share Tech Mono'";ctx.fillStyle='rgba(255,255,255,.3)';ctx.textAlign='center';ctx.fillText('?',s.x,s.y+3);}
+  });
+  ds.planetas.forEach(p=>{if(p.arrastando)return;desenharPlanetaDrag(p.noSlot>=0?ds.slots[p.noSlot].x:p.x,p.noSlot>=0?ds.slots[p.noSlot].y:p.y,p);});
+  ds.planetas.forEach(p=>{if(!p.arrastando)return;desenharPlanetaDrag(p.dragX,p.dragY,p);});
+  ctx.font="7px 'Press Start 2P'";ctx.fillStyle='rgba(255,229,100,.7)';ctx.textAlign='center';ctx.fillText('Arraste os planetas para as órbitas na ordem correta!',W/2,H-18);
+  ctx.font="8px 'Share Tech Mono'";ctx.fillStyle='rgba(0,229,255,.4)';ctx.fillText('Mercúrio → Vênus → Terra → Marte (do mais próximo ao mais distante do Sol)',W/2,H-5);
+  if(ds.acertou){ctx.fillStyle='rgba(68,238,187,.9)';ctx.font="10px 'Press Start 2P'";ctx.textAlign='center';ctx.fillText('✦ CORRETO! ✦',W/2,H/2);}
+}
+
+// ── DESENHO DRAG8 ─────────────────────────────────────────
+function desenharDrag8(t){
+  const ds=m2.drag8;
+  const sx=55,sy=H/2-30;
+  const gs=ctx.createRadialGradient(sx,sy,3,sx,sy,28);
+  gs.addColorStop(0,'#fffaaa');gs.addColorStop(.5,'#ffcc00');gs.addColorStop(1,'#ff8800');
+  ctx.beginPath();ctx.arc(sx,sy,22,0,Math.PI*2);ctx.fillStyle=gs;ctx.fill();
+  ctx.strokeStyle='rgba(100,150,255,.15)';ctx.lineWidth=1;ctx.setLineDash([3,8]);
+  ctx.beginPath();ctx.moveTo(sx+25,sy);ctx.lineTo(W-20,sy);ctx.stroke();ctx.setLineDash([]);
+  ds.slots.forEach((s,i)=>{
+    s.x=90+i*88;s.y=370;
+    ctx.beginPath();ctx.arc(s.x,s.y,20,0,Math.PI*2);
+    ctx.strokeStyle=s.ocupado>=0?'rgba(68,238,187,.8)':'rgba(255,255,255,.2)';ctx.lineWidth=2;ctx.stroke();
+    ctx.font="6px 'Press Start 2P'";ctx.fillStyle='rgba(255,255,255,.25)';ctx.textAlign='center';ctx.fillText(i+1,s.x,s.y+3);
+  });
+  ctx.font="6px 'Press Start 2P'";ctx.fillStyle='rgba(255,200,0,.5)';ctx.textAlign='center';ctx.fillText('SOL',sx,sy+35);
+  ds.planetas.forEach(p=>{if(p.arrastando)return;desenharPlanetaDrag(p.noSlot>=0?ds.slots[p.noSlot].x:p.x,p.noSlot>=0?ds.slots[p.noSlot].y:p.y,p);});
+  ds.planetas.forEach(p=>{if(!p.arrastando)return;desenharPlanetaDrag(p.dragX,p.dragY,p);});
+  ctx.font="7px 'Press Start 2P'";ctx.fillStyle='rgba(255,229,100,.7)';ctx.textAlign='center';ctx.fillText('Ordene TODOS os 8 planetas do mais próximo ao mais distante do Sol!',W/2,H-18);
+  if(ds.acertou){ctx.fillStyle='rgba(68,238,187,.9)';ctx.font="10px 'Press Start 2P'";ctx.textAlign='center';ctx.fillText('✦ SISTEMA SOLAR COMPLETO! ✦',W/2,H/2);}
+}
+
+// ── DESENHO PRINCIPAL M2 ──────────────────────────────────
+function desenharM2(t){
+  ctx.fillStyle='#04040e';ctx.fillRect(0,0,W,H);
+  ctx.drawImage(nbCanvas,0,0);
+  STARS.forEach(s=>{s.twinkleOffset+=s.twinkleSpeed;const a=.25+Math.sin(s.twinkleOffset)*.3;ctx.fillStyle=`rgba(200,220,255,${a})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
+  if(m2Estado==="LUNETA")desenharLuneta(t);
+  else if(m2Estado==="DRAG_4")desenharDrag4(t);
+  else if(m2Estado==="DRAG_8")desenharDrag8(t);
+  ctx.font="9px 'Press Start 2P'";ctx.fillStyle='rgba(255,200,0,.6)';ctx.textAlign='center';ctx.fillText('MISSÃO 2 — KEPLER E AS ÓRBITAS',W/2,22);
+}
+
+// ── CONTROLES ─────────────────────────────────────────────
+const keys={};
+window.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+  if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){if(dlgCooldown>0)return;GZ_Audio&&GZ_Audio.dialogoAvancar();indiceScript++;atualizarDlg();}
+});
+window.addEventListener('keyup',e=>{keys[e.key]=false;});
+
+// ── INTRO ─────────────────────────────────────────────────
+// ── CUTSCENE DE ENTRADA ──────────────────────────────────
+const introDiv  = document.getElementById('cutscene-intro');
+const introVid  = document.getElementById('video-intro');
+const skipBtn   = document.getElementById('skip-intro-btn');
+
+function fecharCutsceneIntro(){
+  introDiv.style.opacity='0';
+  introDiv.style.transition='opacity .5s ease';
+  setTimeout(()=>{ introDiv.style.display='none'; }, 500);
+}
+
+introVid.addEventListener('ended', fecharCutsceneIntro);
+skipBtn.addEventListener('click', fecharCutsceneIntro);
+window.addEventListener('keydown', e=>{
+  if(introDiv.style.display!=='none' && (e.key===' '||e.key==='Enter'||e.key==='Escape')){
+    fecharCutsceneIntro();
+  }
+});
+
+// Tentar reproduzir (autoplay policy)
+introVid.play().catch(()=>{ fecharCutsceneIntro(); });
+
+// ── FUNÇÃO CUTSCENE PÓS DRAG4 ───────────────────────────
+function tocarCutsceneDrag4(callback){
+  const div = document.getElementById('cutscene-drag4');
+  const vid = document.getElementById('video-drag4');
+  const skip = document.getElementById('skip-drag4-btn');
+
+  div.style.display='flex';
+  vid.currentTime=0;
+  vid.play().catch(()=>{ fecharCutsceneDrag4(callback); });
+
+  function fecharCutsceneDrag4(cb){
+    div.style.opacity='0';
+    div.style.transition='opacity .5s ease';
+    setTimeout(()=>{
+      div.style.display='none';
+      div.style.opacity='1';
+      if(cb) cb();
+    },500);
+  }
+
+  vid.onended = ()=>fecharCutsceneDrag4(callback);
+  skip.onclick = ()=>fecharCutsceneDrag4(callback);
+
+  // Teclas para pular
+  function onKey(e){
+    if(e.key===' '||e.key==='Enter'||e.key==='Escape'){
+      fecharCutsceneDrag4(callback);
+      window.removeEventListener('keydown', onKey);
+    }
+  }
+  window.addEventListener('keydown', onKey);
+}
+
+inicializarM2();
+GZ_Audio.entradaFase();
+dispararHistoria([
+  {quem:"NARRADOR",ouvinte:"JOHANNES KEPLER",texto:"Século XVII. Após décadas de cálculos com dados de Tycho Brahe, Johannes Kepler descobre a geometria das órbitas."},
+  {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Jovem viajante! As órbitas dos planetas NÃO são círculos perfeitos. São ELIPSES! E o Sol está num dos FOCOS — não no centro!"},
+  {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Primeira missão: use a LUNETA DE GALILEU para encontrar o planeta escondido na escuridão. Arraste-a pelo céu!"},
+], null, "JOGADOR");
+
+// ── LOOP ──────────────────────────────────────────────────
+let ticks=0;
+function loop(){
+  ticks++;if(dlgCooldown>0)dlgCooldown--;
+  ctx.fillStyle='#04040e';ctx.fillRect(0,0,W,H);
+  const emM2=estadoJogo==="MISSAO_2"||(estadoJogo==="DIALOGO"&&estadoAnteriorDialogo==="MISSAO_2")||estadoJogo==="FASE_2_VITORIA";
+  if(emM2)desenharM2(ticks);
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+<div id="gz-fullscreen-btn" title="Tela cheia">⛶</div>
+<div id="gz-touch-controls">
+  <div class="gz-dpad">
+    <div class="gz-btn gz-up" data-key="ArrowUp">▲</div>
+    <div class="gz-btn gz-left" data-key="ArrowLeft">◀</div>
+    <div class="gz-btn gz-down" data-key="ArrowDown">▼</div>
+    <div class="gz-btn gz-right" data-key="ArrowRight">▶</div>
+  </div>
+  <div class="gz-extra">
+    <div class="gz-btn gz-esc" data-key="Escape" data-tap="1" title="ESC">ESC</div>
+    <div class="gz-btn gz-secondary" data-key="r" data-tap="1" title="R">R</div>
+  </div>
+  <div class="gz-actions">
+    <div class="gz-btn gz-secondary" data-key="Enter" data-tap="1" title="Enter">ENT</div>
+    <div class="gz-btn gz-action" data-key=" " title="Ação">SOCO</div>
+  </div>
+</div>
+
+<script id="gz-mobile-script">
+(function(){
+  // ── 1. Escalonar o canvas-wrapper para caber na tela ──
+  function escalarCanvas(){
+    const wrapper = document.querySelector('.canvas-wrapper');
+    if(!wrapper) return;
+    let outer = document.getElementById('gz-scale-outer');
+    if(!outer){
+      outer = document.createElement('div');
+      outer.id = 'gz-scale-outer';
+      wrapper.parentNode.insertBefore(outer, wrapper);
+      outer.appendChild(wrapper);
+    }
+    const baseW = wrapper.offsetWidth || 800;
+    const baseH = wrapper.offsetHeight || 550;
+    const availW = window.innerWidth - 8;
+    const isMobile = window.matchMedia('(max-width: 880px), (pointer: coarse)').matches;
+    const reservedBottom = isMobile ? 165 : 0;
+    const reservedTop = isMobile ? 36 : 0;
+    const availH = window.innerHeight - reservedBottom - reservedTop;
+    const scale = Math.min(availW / baseW, availH / baseH, 1);
+    wrapper.style.transform = `scale(${scale})`;
+    wrapper._gzScale = scale;
+    outer.style.height = (baseH * scale) + 'px';
+  }
+  window.addEventListener('resize', escalarCanvas);
+  window.addEventListener('orientationchange', ()=>setTimeout(escalarCanvas,200));
+  document.addEventListener('DOMContentLoaded', escalarCanvas);
+  setTimeout(escalarCanvas, 50);
+  setTimeout(escalarCanvas, 400);
+
+  // ── 2. Disparar eventos de teclado sintéticos ──
+  function dispatchKey(type, key){
+    const ev = new KeyboardEvent(type, {key:key, bubbles:true, cancelable:true});
+    window.dispatchEvent(ev);
+    document.dispatchEvent(ev);
+  }
+
+  function bindBtn(btn){
+    const key = btn.getAttribute('data-key');
+    const isTap = btn.getAttribute('data-tap') === '1';
+
+    function press(e){
+      e.preventDefault();
+      btn.classList.add('gz-pressed');
+      dispatchKey('keydown', key);
+      if(isTap){
+        setTimeout(()=>dispatchKey('keyup', key), 30);
+      }
+    }
+    function release(e){
+      if(e) e.preventDefault();
+      btn.classList.remove('gz-pressed');
+      if(!isTap) dispatchKey('keyup', key);
+    }
+
+    btn.addEventListener('touchstart', press, {passive:false});
+    btn.addEventListener('touchend', release, {passive:false});
+    btn.addEventListener('touchcancel', release, {passive:false});
+    btn.addEventListener('mousedown', press);
+    btn.addEventListener('mouseup', release);
+    btn.addEventListener('mouseleave', release);
+  }
+
+  document.querySelectorAll('#gz-touch-controls .gz-btn').forEach(bindBtn);
+
+  // ── 3. Toque na tela para avançar diálogo (Espaço) ──
+  const wrapperEl = document.querySelector('.canvas-wrapper');
+  if(wrapperEl){
+    wrapperEl.addEventListener('touchend', function(e){
+      const dlg = document.getElementById('dialogue-overlay');
+      if(dlg && dlg.classList.contains('visible')){
+        if(e.target.closest && e.target.closest('#gz-touch-controls')) return;
+        dispatchKey('keydown', ' ');
+        dispatchKey('keyup', ' ');
+      }
+    }, {passive:true});
+  }
+
+  // ── 4. Ponte de toque → eventos de mouse no canvas (drag da luneta etc.) ──
+  function bridgeTouchToMouse(canvas){
+    if(!canvas) return;
+    function touchToMouseEvent(touchEvent, type){
+      const touch = touchEvent.changedTouches[0];
+      if(!touch) return;
+      const scale = wrapperEl ? (wrapperEl._gzScale || 1) : 1;
+      const rect = canvas.getBoundingClientRect();
+      const x = (touch.clientX - rect.left) / scale;
+      const y = (touch.clientY - rect.top) / scale;
+      const mouseEvent = new MouseEvent(type, {
+        clientX: rect.left + x*scale,
+        clientY: rect.top + y*scale,
+        bubbles: true, cancelable: true
+      });
+      canvas.dispatchEvent(mouseEvent);
+    }
+    canvas.addEventListener('touchstart', e=>{ touchToMouseEvent(e,'mousedown'); }, {passive:true});
+    canvas.addEventListener('touchmove', e=>{ touchToMouseEvent(e,'mousemove'); }, {passive:true});
+    canvas.addEventListener('touchend', e=>{ touchToMouseEvent(e,'mouseup'); }, {passive:true});
+  }
+  bridgeTouchToMouse(document.getElementById('gameCanvas'));
+
+  // ── 5. Iniciar áudio no primeiro toque (política de autoplay) ──
+  function iniciarAudioTouch(){
+    if(window.GZ_Audio && typeof GZ_Audio.init==='function'){
+      GZ_Audio.init();
+      GZ_Audio.resume && GZ_Audio.resume();
+    }
+    document.removeEventListener('touchstart', iniciarAudioTouch);
+  }
+  document.addEventListener('touchstart', iniciarAudioTouch, {passive:true});
+
+  // ── 6. Corrigir cutscenes travadas no mobile (autoplay bloqueado) ──
+  // IDs conhecidos de overlays de cutscene em todo o jogo
+  const CUTSCENE_IDS = ['screen-cutscene','cutscene-intro','cutscene-drag4'];
+  const SKIP_BTN_IDS = ['skip-btn','skip-intro-btn','skip-drag4-btn'];
+
+  function cutsceneVisivel(el){
+    if(!el) return false;
+    const cs = getComputedStyle(el);
+    if(cs.display==='none') return false;
+    if(el.id==='screen-cutscene') return el.classList.contains('visible');
+    return true; // cutscene-intro/drag4 usam display flex/none
+  }
+
+  function algumaCutsceneVisivel(){
+    return CUTSCENE_IDS.some(id=>cutsceneVisivel(document.getElementById(id)));
+  }
+
+  // Esconde os controles touch enquanto uma cutscene estiver visível,
+  // pra não bloquear o botão "PULAR" por cima (z-index)
+  function atualizarVisibilidadeControles(){
+    const tc = document.getElementById('gz-touch-controls');
+    if(!tc) return;
+    tc.style.display = algumaCutsceneVisivel() ? 'none' : '';
+  }
+  setInterval(atualizarVisibilidadeControles, 250);
+
+  // Tenta retomar o play dos vídeos de cutscene no primeiro toque
+  // (autoplay sem gesto do usuário costuma falhar/ficar parado)
+  function retomarVideosCutscene(){
+    document.querySelectorAll('#screen-cutscene video, #cutscene-intro video, #cutscene-drag4 video')
+      .forEach(v=>{
+        if(v.paused && v.readyState>0){
+          v.play().catch(()=>{});
+        }
+      });
+  }
+
+  // Toque em qualquer lugar de uma cutscene visível = pular (clica no botão PULAR correspondente)
+  function tapSkipCutscene(e){
+    let pulou = false;
+    CUTSCENE_IDS.forEach((id,i)=>{
+      const el = document.getElementById(id);
+      if(cutsceneVisivel(el)){
+        const btn = document.getElementById(SKIP_BTN_IDS[i]);
+        if(btn){ btn.click(); pulou = true; }
+        else {
+          // fallback: index.html usa video.addEventListener('ended', afterCutscene)
+          const vid = el.querySelector('video');
+          if(vid){
+            vid.dispatchEvent(new Event('ended'));
+            pulou = true;
+          }
+        }
+      }
+    });
+    if(pulou) e.preventDefault();
+  }
+
+  document.addEventListener('touchstart', function(e){
+    retomarVideosCutscene();
+    if(algumaCutsceneVisivel()) tapSkipCutscene(e);
+  }, {passive:false});
+
+  document.addEventListener('touchend', function(e){
+    if(algumaCutsceneVisivel()) tapSkipCutscene(e);
+  }, {passive:false});
+
+  // ── 7. Botão de tela cheia ──
+  const fsBtn = document.getElementById('gz-fullscreen-btn');
+  if(fsBtn){
+    fsBtn.addEventListener('click', function(){
+      const el = document.documentElement;
+      if(!document.fullscreenElement){
+        (el.requestFullscreen && el.requestFullscreen())
+          || (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+      } else {
+        (document.exitFullscreen && document.exitFullscreen())
+          || (document.webkitExitFullscreen && document.webkitExitFullscreen());
+      }
+    });
+    document.addEventListener('fullscreenchange', ()=>setTimeout(escalarCanvas,150));
+    document.addEventListener('webkitfullscreenchange', ()=>setTimeout(escalarCanvas,150));
+  }
+})();
+</script>
+</body>
+</html>

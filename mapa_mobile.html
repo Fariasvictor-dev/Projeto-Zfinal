@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<title>Gravitação Z — Mapa</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#04040e;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  min-height:100vh;
+  font-family:'Share Tech Mono',monospace;
+  color:#c8d8e8;overflow:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);
+  pointer-events:none;z-index:999;
+}
+header{display:flex;align-items:center;gap:1rem;margin-bottom:.5rem}
+header h1{
+  font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.35rem;
+  letter-spacing:.3em;text-transform:uppercase;
+  color:#ffe566;text-shadow:0 0 10px #ffe566,0 0 22px #ff9900;
+}
+.badge{font-size:.55rem;letter-spacing:.15em;padding:2px 8px;border:1px solid #00e5ff;color:#00e5ff}
+.canvas-wrapper{position:relative;border:2px solid #1e2a3a;box-shadow:0 0 50px rgba(100,60,220,.18)}
+canvas{display:block}
+.hint{margin-top:8px;font-size:.6rem;color:#4a5a6a;letter-spacing:.1em}
+.back-btn{
+  position:fixed;top:12px;left:14px;
+  font-family:'Press Start 2P',monospace;font-size:.5rem;
+  color:#2a4a6a;text-decoration:none;letter-spacing:.1em;
+  border:1px solid #1a2a3a;padding:5px 10px;
+  z-index:50;transition:.2s;
+}
+.back-btn:hover{color:#00e5ff;border-color:#00e5ff}
+
+/* ── CAIXA DE DIÁLOGO RPG ── */
+#dialogue-overlay{
+  display:none;
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:148px;
+  z-index:25;
+  animation:dlgIn .18s ease;
+}
+@keyframes dlgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+#dialogue-overlay.visible{display:block}
+.dlg-frame{position:absolute;inset:0;background:#1a1208;border-top:4px solid #1a1208;}
+.dlg-inner{
+  position:absolute;inset:5px;
+  background:linear-gradient(180deg,#e8d08a 0%,#c8a840 4px,#f5e6b0 4px,#f0dea0 100%);
+  border:3px solid #8b6914;
+  box-shadow:inset 0 0 0 2px #f5e8b8, inset 0 0 0 4px #a07820;
+  display:flex;align-items:stretch;
+}
+.dlg-inner::before,.dlg-inner::after{content:'◆';position:absolute;font-size:14px;color:#8b6914;line-height:1;top:4px;}
+.dlg-inner::before{left:6px} .dlg-inner::after{right:6px}
+.dlg-avatar-wrap{width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:6px 8px 0;position:relative;}
+#avatar-canvas{width:90px;height:90px;image-rendering:pixelated;border:3px solid #8b6914;background:#0a0814;box-shadow:inset 0 0 8px rgba(0,0,0,.6),0 0 0 2px #c8a840;}
+.dlg-avatar-name{font-family:'Press Start 2P',monospace;font-size:5.5px;color:#3a2200;margin-top:4px;text-align:center;max-width:90px;word-break:break-all;}
+.dlg-sep{width:4px;background:repeating-linear-gradient(180deg,#8b6914 0,#8b6914 4px,#c8a840 4px,#c8a840 8px);margin:8px 0;flex-shrink:0;}
+.dlg-text-area{flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px 16px 10px 12px;position:relative;}
+.dlg-speaker-bar{display:inline-block;background:#1a0c00;border:2px solid #8b6914;box-shadow:2px 2px 0 #3a2200;padding:3px 12px 3px 8px;margin-bottom:8px;align-self:flex-start;}
+.dlg-speaker-name{font-family:'Press Start 2P',monospace;font-size:8px;color:#ffe566;text-shadow:1px 1px 0 #884400,0 0 8px rgba(255,180,0,.5);letter-spacing:.12em;}
+#speaker-message{font-family:'Press Start 2P',monospace;font-size:7.5px;line-height:1.85;color:#1a0c00;text-shadow:.5px .5px 0 rgba(255,255,255,.3);}
+.dlg-arrow{position:absolute;bottom:8px;right:14px;font-size:12px;color:#8b4500;animation:arrowBlink 1s steps(1) infinite;}
+@keyframes arrowBlink{50%{opacity:0}}
+.dlg-avatar-right{width:110px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:6px 8px 0;}
+#avatar-canvas-r{width:90px;height:90px;image-rendering:pixelated;border:3px solid #8b6914;background:#0a0814;box-shadow:inset 0 0 8px rgba(0,0,0,.6),0 0 0 2px #c8a840;}
+.dlg-avatar-name-r{font-family:'Press Start 2P',monospace;font-size:5.5px;color:#3a2200;margin-top:4px;text-align:center;max-width:90px;word-break:break-all;}
+
+/* ── PAINEL DE CONFIGURAÇÕES 3D ── */
+#config-btn{
+  position:fixed;top:12px;right:14px;
+  font-family:'Press Start 2P',monospace;font-size:.5rem;
+  color:#2a4a6a;border:1px solid #1a2a3a;padding:5px 10px;
+  background:transparent;cursor:pointer;z-index:60;transition:.2s;
+}
+#config-btn:hover{color:#ffe566;border-color:#ffe566;}
+
+#config-overlay{
+  position:fixed;inset:0;z-index:100;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.7);
+  perspective:900px;
+}
+#config-overlay.visible{display:flex;animation:cfgFadeIn .25s ease;}
+@keyframes cfgFadeIn{from{opacity:0}to{opacity:1}}
+
+#config-panel{
+  width:340px;
+  background:linear-gradient(160deg,#0e1628 0%,#07091a 60%,#12082a 100%);
+  border:2px solid #2a3a5a;
+  box-shadow:0 0 60px rgba(80,40,200,.35),
+             inset 0 0 30px rgba(0,0,0,.5),
+             0 30px 60px rgba(0,0,0,.7);
+  padding:28px 30px 24px;
+  position:relative;
+  transform:rotateY(-8deg) rotateX(4deg);
+  transform-style:preserve-3d;
+  transition:transform .4s ease;
+  animation:cfgSlideIn .35s cubic-bezier(.22,1,.36,1);
+}
+@keyframes cfgSlideIn{
+  from{opacity:0;transform:rotateY(-24deg) rotateX(8deg) translateZ(-60px);}
+  to{opacity:1;transform:rotateY(-8deg) rotateX(4deg) translateZ(0);}
+}
+#config-panel:hover{transform:rotateY(-4deg) rotateX(2deg);}
+
+/* cantos decorativos */
+#config-panel::before,#config-panel::after{
+  content:'';position:absolute;width:14px;height:14px;
+  border-color:#ffe566;border-style:solid;opacity:.5;
+}
+#config-panel::before{top:0;left:0;border-width:2px 0 0 2px;}
+#config-panel::after{bottom:0;right:0;border-width:0 2px 2px 0;}
+
+.cfg-title{
+  font-family:'Orbitron',sans-serif;font-size:.85rem;
+  color:#ffe566;text-shadow:0 0 12px #ff9900;
+  letter-spacing:.2em;text-align:center;
+  margin-bottom:22px;
+  transform:translateZ(8px);
+}
+
+.cfg-row{
+  display:flex;align-items:center;gap:14px;
+  margin-bottom:18px;
+  transform:translateZ(4px);
+}
+.cfg-label{
+  font-family:'Press Start 2P',monospace;font-size:.45rem;
+  color:#8899bb;letter-spacing:.1em;
+  min-width:80px;
+}
+
+/* slider 3D */
+.cfg-slider-wrap{
+  flex:1;position:relative;height:28px;display:flex;align-items:center;
+}
+input[type=range].cfg-slider{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:6px;
+  background:linear-gradient(90deg,#2244aa,#00e5ff);
+  border-radius:3px;outline:none;cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,229,255,.25),inset 0 1px 3px rgba(0,0,0,.5);
+}
+input[type=range].cfg-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:20px;height:20px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ffffff,#00e5ff 50%,#0044aa);
+  box-shadow:0 0 10px rgba(0,229,255,.7),0 3px 6px rgba(0,0,0,.5);
+  border:2px solid rgba(255,255,255,.4);
+  cursor:pointer;transition:transform .15s;
+}
+input[type=range].cfg-slider::-webkit-slider-thumb:hover{transform:scale(1.2);}
+input[type=range].cfg-slider::-moz-range-thumb{
+  width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ffffff,#00e5ff 50%,#0044aa);
+  box-shadow:0 0 10px rgba(0,229,255,.7);border:2px solid rgba(255,255,255,.4);cursor:pointer;
+}
+
+/* toggle 3D */
+.cfg-toggle{
+  position:relative;width:52px;height:26px;cursor:pointer;
+  transform-style:preserve-3d;
+}
+.cfg-toggle input{opacity:0;width:0;height:0;}
+.cfg-toggle-track{
+  position:absolute;inset:0;border-radius:13px;
+  background:#1a2a3a;border:1px solid #2a3a5a;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.6),0 2px 4px rgba(0,0,0,.4);
+  transition:background .3s;
+}
+.cfg-toggle input:checked ~ .cfg-toggle-track{
+  background:linear-gradient(90deg,#0044aa,#00e5ff);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.3),0 0 12px rgba(0,229,255,.4);
+}
+.cfg-toggle-thumb{
+  position:absolute;top:3px;left:3px;
+  width:20px;height:20px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ffffff,#aabbcc);
+  box-shadow:0 2px 6px rgba(0,0,0,.5),0 0 8px rgba(255,255,255,.2);
+  transition:left .3s cubic-bezier(.34,1.56,.64,1);
+}
+.cfg-toggle input:checked ~ .cfg-toggle-thumb{left:29px;}
+
+.cfg-val{
+  font-family:'Share Tech Mono',monospace;font-size:.6rem;
+  color:#00e5ff;min-width:32px;text-align:right;
+}
+
+.cfg-sep{
+  height:1px;background:linear-gradient(90deg,transparent,#2a3a5a,transparent);
+  margin:4px 0 16px;
+}
+
+.cfg-close{
+  width:100%;padding:9px;margin-top:6px;
+  font-family:'Press Start 2P',monospace;font-size:.5rem;
+  background:transparent;border:2px solid #ffe566;
+  color:#ffe566;cursor:pointer;letter-spacing:.12em;
+  transition:.2s;transform:translateZ(6px);
+}
+.cfg-close:hover{background:rgba(255,229,100,.1);box-shadow:0 0 14px rgba(255,229,100,.3);}
+
+</style>
+<style id="gz-mobile-style">
+  @media (max-width: 880px), (pointer: coarse) {
+    body{
+      padding: 0 !important;
+      justify-content: flex-start !important;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+    }
+    header{
+      margin-top: env(safe-area-inset-top, 8px);
+      transform: scale(0.62);
+      transform-origin: top center;
+      margin-bottom: -10px;
+    }
+    .hint{ display:none; }
+    .back-btn{
+      font-size: .42rem !important;
+      padding: 4px 8px !important;
+      top: env(safe-area-inset-top, 6px) !important;
+      left: 6px !important;
+      z-index: 1000 !important;
+    }
+    #gz-scale-outer{
+      width: 100%;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      overflow: hidden;
+    }
+    .canvas-wrapper{
+      transform-origin: top center;
+      flex-shrink: 0;
+    }
+    #gz-touch-controls{
+      position: fixed;
+      left:0; right:0; bottom:0;
+      display:flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom,0px));
+      z-index: 999;
+      pointer-events:none;
+      gap: 8px;
+    }
+    #gz-touch-controls.hidden{ display:none; }
+    .gz-dpad{
+      display:grid;
+      grid-template-columns: 50px 50px 50px;
+      grid-template-rows: 50px 50px;
+      gap:5px;
+      pointer-events:auto;
+    }
+    .gz-dpad .gz-btn{ grid-row: 2; }
+    .gz-dpad .gz-up{ grid-row:1; grid-column:2; }
+    .gz-extra{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:auto;
+      align-items:center;
+    }
+    .gz-actions{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      pointer-events:auto;
+      align-items:center;
+    }
+    .gz-btn{
+      width:50px;height:50px;
+      border-radius:14px;
+      border:2px solid #ffe566;
+      background:rgba(10,10,25,.78);
+      color:#ffe566;
+      font-family:'Press Start 2P',monospace;
+      font-size:1rem;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 10px rgba(255,229,100,.25);
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    .gz-btn:active, .gz-btn.gz-pressed{
+      background:rgba(255,229,100,.28);
+      box-shadow:0 0 16px rgba(255,229,100,.6);
+    }
+    .gz-btn.gz-action{
+      width:72px;height:72px;
+      border-radius:50%;
+      border-color:#ff6688;
+      color:#ff6688;
+      font-size:.6rem;
+    }
+    .gz-btn.gz-secondary{
+      width:50px;height:50px;
+      border-radius:50%;
+      border-color:#4488ff;
+      color:#4488ff;
+      font-size:.5rem;
+    }
+    .gz-btn.gz-esc{
+      width:42px;height:42px;
+      border-radius:8px;
+      border-color:#888;
+      color:#aaa;
+      font-size:.42rem;
+    }
+    #gz-fullscreen-btn{
+      position: fixed;
+      top: env(safe-area-inset-top, 6px);
+      right: 6px;
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      border: 2px solid #ffe566;
+      background: rgba(10,10,25,.78);
+      color: #ffe566;
+      font-size: 1.1rem;
+      display:flex;align-items:center;justify-content:center;
+      z-index: 1000;
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    #dialogue-overlay{ touch-action: none; }
+  }
+  @media (max-width: 400px){
+    .gz-dpad{
+      grid-template-columns: 44px 44px 44px;
+      grid-template-rows: 44px 44px;
+      gap:4px;
+    }
+    .gz-btn{ width:44px; height:44px; font-size:.9rem; }
+    .gz-btn.gz-action{ width:64px; height:64px; font-size:.55rem; }
+    .gz-btn.gz-secondary{ width:44px; height:44px; }
+    .gz-btn.gz-esc{ width:38px; height:38px; }
+  }
+  @media (min-width: 881px) and (pointer: fine){
+    #gz-touch-controls{ display:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<a class="back-btn" href="index_mobile.html">◀ MENU</a>
+
+<!-- Botão configurações -->
+<button id="config-btn" onclick="abrirConfig()">⚙ CONFIG</button>
+
+<!-- Painel de configurações 3D -->
+<div id="config-overlay" onclick="fecharConfigOverlay(event)">
+  <div id="config-panel">
+    <div class="cfg-title">⚙ CONFIGURAÇÕES</div>
+
+    <div class="cfg-row">
+      <span class="cfg-label">MÚSICA</span>
+      <label class="cfg-toggle">
+        <input type="checkbox" id="toggle-musica" checked onchange="toggleMusica(this.checked)"/>
+        <div class="cfg-toggle-track"></div>
+        <div class="cfg-toggle-thumb"></div>
+      </label>
+    </div>
+
+    <div class="cfg-row">
+      <span class="cfg-label">VOLUME</span>
+      <div class="cfg-slider-wrap">
+        <input type="range" class="cfg-slider" id="slider-volume"
+          min="0" max="100" value="30"
+          oninput="ajustarVolume(this.value)"/>
+      </div>
+      <span class="cfg-val" id="val-volume">30%</span>
+    </div>
+
+    <div class="cfg-sep"></div>
+
+    <div class="cfg-row">
+      <span class="cfg-label">SONS FX</span>
+      <label class="cfg-toggle">
+        <input type="checkbox" id="toggle-sfx" checked onchange="toggleSFX(this.checked)"/>
+        <div class="cfg-toggle-track"></div>
+        <div class="cfg-toggle-thumb"></div>
+      </label>
+    </div>
+
+    <button class="cfg-close" onclick="fecharConfig()">✕ FECHAR</button>
+  </div>
+</div>
+
+<header>
+  <h1>GRAVITAÇÃO Z</h1>
+  <span class="badge">MAPA ESTELAR</span>
+</header>
+
+<div class="canvas-wrapper">
+  <canvas id="gameCanvas" width="800" height="550"></canvas>
+
+  <div id="dialogue-overlay">
+    <div class="dlg-frame">
+      <div class="dlg-inner">
+        <div class="dlg-avatar-wrap">
+          <canvas id="avatar-canvas" width="90" height="90"></canvas>
+          <div class="dlg-avatar-name" id="avatar-name-l"></div>
+        </div>
+        <div class="dlg-sep"></div>
+        <div class="dlg-text-area">
+          <div class="dlg-speaker-bar">
+            <span class="dlg-speaker-name" id="speaker-name">—</span>
+          </div>
+          <div id="speaker-message"></div>
+          <div class="dlg-arrow">▼</div>
+        </div>
+        <div class="dlg-sep"></div>
+        <div class="dlg-avatar-right">
+          <canvas id="avatar-canvas-r" width="90" height="90"></canvas>
+          <div class="dlg-avatar-name-r" id="avatar-name-r"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="hint" id="hint-bar">SETAS: Mover · ENTER: Interagir com missão</p>
+
+<script src="shared.js"></script>
+<audio id="bg-music" src="The_Slow_Rotation.mp3" loop preload="auto"></audio>
+<audio id="credits-music" src="YTDown_YouTube_Interstellar-Official-Soundtrack-First-S_Media_HV1CMDhemt0_008_128k.mp3" preload="auto"></audio>
+<script src="audio.js"></script>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let estadoJogo = "MAPA";
+let estadoAnteriorDialogo = "MAPA";
+
+let progresso = carregarProgresso();
+
+// ── MISSÕES ────────────────────────────────────────────
+const MISSIONS = [
+  { id:1, x:155, y:180, label:'MISSÃO 1', sub:'A GRANDE DISPUTA',
+    color:'#44eebb', glow:'rgba(68,238,187,.6)',
+    pColors:['#1a6655','#44eebb','#2af4c0','#0a9977'], ringCol:'rgba(68,238,187,.38)', orbitCol:'rgba(68,238,187,.15)',
+    file:'fase1.html', tipo:'planeta' },
+  { id:2, x:295, y:355, label:'MISSÃO 2', sub:'LEIS DE KEPLER',
+    color:'#e5ff00', glow:'rgba(229,255,0,.45)',
+    pColors:['#445500','#aacc00','#e5ff00','#667700'], ringCol:'rgba(229,255,0,.28)', orbitCol:'rgba(229,255,0,.12)',
+    file:'fase2.html', tipo:'planeta' },
+  { id:3, x:415, y:255, label:'MISSÃO 2B', sub:'ÓRBITAS ELÍPTICAS',
+    color:'#bbccdd', glow:'rgba(180,200,220,.4)',
+    pColors:['#334455','#667788','#aabbcc','#445566'], ringCol:'rgba(180,200,220,.2)', orbitCol:'rgba(180,200,220,.08)',
+    file:'fase2b.html', tipo:'lua' },
+  { id:4, x:568, y:415, label:'MISSÃO 3', sub:'A MAÇÃ DE NEWTON',
+    color:'#ff4081', glow:'rgba(255,64,129,.45)',
+    pColors:['#550022','#aa0044','#ff4081','#660033'], ringCol:'rgba(255,64,129,.28)', orbitCol:'rgba(255,64,129,.12)',
+    file:'fase3.html', tipo:'planeta' },
+];
+
+// ── ESTAÇÃO ESPACIAL ─────────────────────────────────
+const ESTACAO = {
+  xFinal:640, yFinal:128,
+  x:900, y:-60,  // começa fora da tela
+  chegou:false,
+  vel:1.8,
+};
+
+// ── PLAYER ─────────────────────────────────────────────
+// Reposicionar perto da missão que o jogador acabou de completar
+function spawnX(){
+  const p=carregarProgresso();
+  if(p.missao3_unlocked) return MISSIONS[3].x-70;
+  if(p.missao2b_unlocked) return MISSIONS[2].x-60;
+  if(p.missao2_unlocked) return MISSIONS[1].x+70;
+  return MISSIONS[0].x;
+}
+function spawnY(){
+  const p=carregarProgresso();
+  if(p.missao3_unlocked) return MISSIONS[3].y+70;
+  if(p.missao2b_unlocked) return MISSIONS[2].y+60;
+  if(p.missao2_unlocked) return MISSIONS[1].y+70;
+  return MISSIONS[0].y+70;
+}
+const player = {
+  x:spawnX(), y:spawnY(),
+  nearEstacao:false,
+  vx:0, vy:0, speed:2.8,
+  facing:1, frame:0, frameTimer:0, nearMission:null
+};
+
+const keys={};
+window.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+  if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){ GZ_Audio.dialogoAvancar(); indiceScript++; atualizarDlg(); return; }
+  if(estadoJogo==="MAPA"&&e.key==='Enter'){
+    if(player.nearEstacao){ GZ_Audio.btnClick(); irParaEstacao(); return; }
+    if(player.nearMission!==null){ GZ_Audio.btnClick(); iniciarMissao(player.nearMission); }
+  }
+});
+window.addEventListener('keyup',e=>{keys[e.key]=false;});
+
+// ── DIÁLOGO ────────────────────────────────────────────
+let scriptAtual=[],indiceScript=0,acaoPos=null,dlgOuvinte=null;
+let dlgCooldown=0;
+
+function atualizarDlg(){
+  const ov=document.getElementById('dialogue-overlay');
+  if(indiceScript<scriptAtual.length){
+    const f=scriptAtual[indiceScript];
+    ov.classList.add('visible');
+    document.getElementById('speaker-name').textContent=f.quem;
+    document.getElementById('speaker-message').textContent=f.texto;
+    dlgCooldown=55;
+    desenharAvatarCanvas(document.getElementById('avatar-canvas'),f.quem);
+    document.getElementById('avatar-name-l').textContent=f.quem;
+    const ouvinte=f.ouvinte||dlgOuvinte;
+    if(ouvinte){
+      desenharAvatarCanvas(document.getElementById('avatar-canvas-r'),ouvinte);
+      document.getElementById('avatar-name-r').textContent=ouvinte;
+    } else {
+      document.getElementById('avatar-canvas-r').getContext('2d').clearRect(0,0,90,90);
+      document.getElementById('avatar-name-r').textContent='';
+    }
+  } else {
+    ov.classList.remove('visible');
+    estadoJogo=estadoAnteriorDialogo;
+    const cb=acaoPos; acaoPos=null;
+    if(cb) cb();
+  }
+}
+
+function dispararHistoria(falas,callback,ouvinte){
+  scriptAtual=falas; indiceScript=0; acaoPos=callback; dlgOuvinte=ouvinte||null;
+  if(estadoJogo!=="DIALOGO") estadoAnteriorDialogo=estadoJogo;
+  estadoJogo="DIALOGO";
+  dlgCooldown=80;
+  atualizarDlg();
+}
+
+// ── AMBIENTE ───────────────────────────────────────────
+const STARS = criarStars(W, H);
+const nbCanvas = criarNebulas(W, H);
+
+// ── DESENHO PLANETAS ───────────────────────────────────
+function lightenHex(hex,amt){
+  const n=parseInt(hex.slice(1),16);
+  return`rgb(${Math.min(255,((n>>16)&255)+amt)},${Math.min(255,((n>>8)&255)+amt)},${Math.min(255,(n&255)+amt)})`;
+}
+
+function drawLock(x,y,size,color){
+  const hw=size*.38,hh=size*.28,bw=size*.55,bh=size*.42;
+  ctx.strokeStyle=color;ctx.lineWidth=size*.12;
+  ctx.beginPath();ctx.arc(x,y-hh*.5,hw,Math.PI,0);ctx.stroke();
+  ctx.fillStyle=color;ctx.fillRect(x-bw/2,y-hh*.2,bw,bh);
+  ctx.fillStyle='rgba(0,0,0,.5)';ctx.beginPath();ctx.arc(x,y+bh*.15,bw*.13,0,Math.PI*2);ctx.fill();
+  ctx.fillRect(x-bw*.06,y+bh*.15,bw*.12,bh*.25);
+}
+
+function desenharPlaneta(m,idx,t){
+  const unlocked=(idx===0)
+    ||(idx===1&&progresso.missao2_unlocked)
+    ||(idx===2&&progresso.missao2b_unlocked)
+    ||(idx===3&&progresso.missao3_unlocked);
+  const {x,y,color,glow,pColors,ringCol,orbitCol}=m;
+  const isLua = m.tipo==='lua';
+  const pulse=Math.sin(t*.04+idx)*.5+.5;
+  const R = isLua ? 22 : 46; // planetas maiores e mais visíveis
+  ctx.save();ctx.strokeStyle=orbitCol;ctx.lineWidth=1;ctx.setLineDash([4,6]);
+  ctx.beginPath();ctx.ellipse(x,y,R+30,10,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  if(unlocked){
+    const g2=ctx.createRadialGradient(x,y,R*.3,x,y,R*2.4);
+    g2.addColorStop(0,glow);g2.addColorStop(1,'transparent');
+    ctx.fillStyle=g2;ctx.beginPath();ctx.arc(x,y,R*2.4,0,Math.PI*2);ctx.fill();
+  }
+  const sphere=ctx.createRadialGradient(x-10,y-12,3,x,y,R);
+  if(isLua){
+    sphere.addColorStop(0,unlocked?'#dde0e8':'#445566');
+    sphere.addColorStop(.5,unlocked?'#9aa0b0':'#2a3344');
+    sphere.addColorStop(1,unlocked?'#5a6070':'#1a2233');
+  } else {
+    sphere.addColorStop(0,unlocked?lightenHex(pColors[2],40):'#556677');
+    sphere.addColorStop(.5,unlocked?pColors[1]:'#33445a');
+    sphere.addColorStop(1,unlocked?pColors[0]:'#1a2233');
+  }
+  ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.fillStyle=sphere;ctx.fill();
+  if(unlocked && isLua){
+    // Crateras da lua
+    ctx.save();ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.clip();
+    [[x-5,y-6,4],[x+6,y+4,3],[x-2,y+8,2.5],[x+8,y-8,2]].forEach(([cx,cy,cr])=>{
+      ctx.beginPath();ctx.arc(cx,cy,cr,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.18)';ctx.fill();
+      ctx.beginPath();ctx.arc(cx-.5,cy-.5,cr*.6,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.06)';ctx.fill();
+    });
+    ctx.restore();
+  } else if(unlocked){
+    ctx.save();ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.clip();
+    for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(x,y-6+i*9,R*.88,3.5,.2,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.1)';ctx.fill();}
+    ctx.restore();
+  }
+  ctx.beginPath();ctx.arc(x-11,y-13,R*.33,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,.12)';ctx.fill();
+  if(!isLua){
+    ctx.save();ctx.translate(x,y);ctx.scale(1,.28);ctx.rotate(.3);
+    ctx.beginPath();ctx.arc(0,0,R+22,0,Math.PI*2);
+    ctx.strokeStyle=unlocked?ringCol:'rgba(80,80,110,.18)';ctx.lineWidth=7;ctx.stroke();
+    ctx.restore();
+  }
+  if(!unlocked){
+    ctx.save();ctx.fillStyle='rgba(0,0,0,.6)';ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.fill();
+    drawLock(x,y,28,'rgba(150,150,210,.75)');ctx.restore();
+  }
+  ctx.save();
+  if(unlocked){ctx.shadowColor=color;ctx.shadowBlur=8;}
+  ctx.font="8.5px 'Press Start 2P'";ctx.fillStyle=unlocked?color:'#556677';ctx.textAlign='center';
+  ctx.fillText(m.label,x,y+R+22);ctx.restore();
+  ctx.font="11px 'Share Tech Mono'";ctx.fillStyle=unlocked?'rgba(200,255,240,.5)':'rgba(100,110,140,.5)';ctx.textAlign='center';
+  ctx.fillText(unlocked?m.sub:'🔒 BLOQUEADO',x,y+R+36);
+  if(unlocked){
+    ctx.beginPath();ctx.arc(x,y,R+5+pulse*9,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(${
+      color==='#44eebb'?'68,238,187':
+      color==='#e5ff00'?'229,255,0':
+      color==='#bbccdd'?'180,200,220':
+      '255,64,129'},${.14-pulse*.11})`;
+    ctx.lineWidth=2;ctx.stroke();
+  }
+}
+
+// ── DESENHO ASTRONAUTA ─────────────────────────────────
+function desenharAstronauta(px_,py_,facing,frame,t){
+  const S=2.4;
+  const ox=px_,oy=py_;
+  ctx.save();ctx.translate(ox,oy);if(facing<0)ctx.scale(-1,1);
+  const bob=Math.sin(t*.08)*.5;
+  const legS=frame===1?1:0;
+  function r(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x*S,(y+bob)*S,w*S,h*S);}
+  ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(0,11*S+bob*S,7*S,2.5*S,0,0,Math.PI*2);ctx.fill();
+  r(-3,0,6,2,'#ffe566');
+  r(-4,2,8,8,'#2255dd');
+  r(-5,3,2,5,'#1133aa');r(3,3,2,5,'#1133aa');
+  r(-3,-5,6,6,'#ccddff');r(-3,-5,6,1,'#8899ff');r(-3,-1,6,1,'#8899ff');
+  r(-2,-4,4,3,'rgba(160,210,255,.72)');r(-1,-4,1,1,'rgba(255,255,255,.6)');
+  r(3,3,3,4,'#1144bb');
+  if(legS){r(-3,10,2,5,'#dd3322');r(1,10,2,3,'#dd3322');r(-3,15,2,2,'#eeddaa');r(1,13,2,2,'#eeddaa');}
+  else{r(-3,10,2,4,'#dd3322');r(1,10,2,5,'#dd3322');r(-3,14,2,2,'#eeddaa');r(1,15,2,2,'#eeddaa');}
+  r(-4,9,8,1.5,'#ffaa00');
+  r(1,-7,1,3,'#aabbff');r(1,-8,1,1,'#ff4488');
+  ctx.restore();
+  const aura=ctx.createRadialGradient(ox,oy+4,2,ox,oy+4,22);
+  aura.addColorStop(0,'rgba(100,180,255,.14)');aura.addColorStop(1,'transparent');
+  ctx.fillStyle=aura;ctx.beginPath();ctx.arc(ox,oy+4,22,0,Math.PI*2);ctx.fill();
+}
+
+// ── DESENHO ESTAÇÃO ESPACIAL ────────────────────────────
+function desenharEstacao(ex, ey, t){
+  const bob=Math.sin(t*.04)*1.2;
+  const sc=1.7; // escala maior
+  ctx.save();
+  ctx.translate(ex, ey+bob);
+  ctx.scale(sc, sc);
+  // Glow
+  const glow=ctx.createRadialGradient(0,0,4,0,0,36);
+  glow.addColorStop(0,'rgba(80,140,255,.3)');glow.addColorStop(1,'transparent');
+  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,36,0,Math.PI*2);ctx.fill();
+  // Corpo central
+  ctx.fillStyle='#ccd4e0';ctx.fillRect(-13,-7,26,14);
+  // Cúpula
+  ctx.fillStyle='#dde4f0';ctx.beginPath();ctx.arc(0,0,7,0,Math.PI*2);ctx.fill();
+  // Janela
+  ctx.fillStyle='rgba(80,160,255,.85)';ctx.beginPath();ctx.arc(0,0,3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(180,220,255,.4)';ctx.beginPath();ctx.arc(-1,-1,1.5,0,Math.PI*2);ctx.fill();
+  // Painéis solares
+  [[-26,-9],[-26,3],[12,-9],[12,3]].forEach(([px,py])=>{
+    ctx.fillStyle='#1a3a88';ctx.fillRect(px,py,12,6);
+    ctx.fillStyle='#2255cc';ctx.fillRect(px+1,py+1,10,4);
+    ctx.strokeStyle='rgba(100,160,255,.5)';ctx.lineWidth=.5;
+    for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(px+i*3,py);ctx.lineTo(px+i*3,py+6);ctx.stroke();}
+  });
+  // Braços
+  ctx.strokeStyle='#889aaa';ctx.lineWidth=1.8;
+  ctx.beginPath();ctx.moveTo(-13,0);ctx.lineTo(-26,0);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(13,0);ctx.lineTo(26,0);ctx.stroke();
+  // Antena
+  ctx.strokeStyle='#aabbcc';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,-7);ctx.lineTo(0,-14);ctx.stroke();
+  ctx.fillStyle='rgba(100,200,255,.9)';ctx.beginPath();ctx.arc(0,-14,1.5,0,Math.PI*2);ctx.fill();
+  // Pulso na antena
+  const pulse=.3+Math.sin(t*.09)*.3;
+  ctx.beginPath();ctx.arc(0,-14,3+pulse*4,0,Math.PI*2);
+  ctx.strokeStyle=`rgba(100,200,255,${.5-pulse*.4})`;ctx.lineWidth=.8;ctx.stroke();
+  ctx.restore();
+}
+
+// ── DESENHO MAPA ───────────────────────────────────────
+function desenharMapa(t){
+  ctx.drawImage(nbCanvas,0,0);
+  STARS.forEach(s=>{
+    s.twinkleOffset+=s.twinkleSpeed;
+    const a=.3+Math.sin(s.twinkleOffset)*.38;
+    ctx.fillStyle=`rgba(200,220,255,${a})`;
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+  });
+  // ── Caminhos tracejados entre missões ──
+  const pares=[
+    [MISSIONS[0],MISSIONS[1]],
+    [MISSIONS[1],MISSIONS[2]],
+    [MISSIONS[2],MISSIONS[3]],
+  ];
+  ctx.save();
+  ctx.strokeStyle='rgba(200,215,235,.35)';ctx.lineWidth=1.5;ctx.setLineDash([7,11]);
+  pares.forEach(([a,b])=>{
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  });
+  if(progresso.missao3_completa){
+    ctx.strokeStyle='rgba(180,140,255,.3)';
+    ctx.beginPath();ctx.moveTo(MISSIONS[3].x,MISSIONS[3].y);ctx.lineTo(ESTACAO.xFinal,ESTACAO.yFinal);ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Asteroides decorativos animados ao longo dos caminhos
+  pares.forEach(([a,b],pi)=>{
+    for(let i=1;i<5;i++){
+      const p=i/5;
+      const ax=a.x+(b.x-a.x)*p + Math.sin(i*7.3+pi*2.1+t*.003)*7;
+      const ay=a.y+(b.y-a.y)*p + Math.cos(i*5.1+pi*1.8+t*.003)*7;
+      ctx.save();ctx.translate(ax,ay);ctx.rotate(i*1.1+t*.004);
+      ctx.fillStyle='rgba(200,210,230,.65)';
+      ctx.beginPath();ctx.ellipse(0,0,5.5,3,0,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+    }
+  });
+  ctx.restore();
+  // Órbita da lua (M2B) ao redor da M2 — elipse
+  const m2=MISSIONS[1], m2b=MISSIONS[2];
+  const luaDist=Math.hypot(m2b.x-m2.x, m2b.y-m2.y);
+  ctx.save();
+  ctx.strokeStyle='rgba(180,200,220,.22)';ctx.lineWidth=.8;ctx.setLineDash([3,7]);
+  ctx.beginPath();ctx.ellipse(m2.x, m2.y, luaDist, luaDist*.4, -0.3, 0, Math.PI*2);ctx.stroke();
+  ctx.setLineDash([]);ctx.restore();
+
+  MISSIONS.forEach((m,idx)=>desenharPlaneta(m,idx,t));
+
+  // ── ESTAÇÃO ESPACIAL (aparece após missão 3) ──────────
+  if(progresso.missao3_completa){
+    // Animar chegada
+    if(!ESTACAO.chegou){
+      const dx=ESTACAO.xFinal-ESTACAO.x, dy=ESTACAO.yFinal-ESTACAO.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>2){
+        ESTACAO.x+=dx/dist*ESTACAO.vel;
+        ESTACAO.y+=dy/dist*ESTACAO.vel;
+      } else {
+        ESTACAO.x=ESTACAO.xFinal;ESTACAO.y=ESTACAO.yFinal;ESTACAO.chegou=true;
+      }
+    }
+    desenharEstacao(ESTACAO.x, ESTACAO.y, t);
+  }
+  if(player.nearMission!==null){
+    const m=MISSIONS[player.nearMission];
+    const ul=(player.nearMission===0)||(player.nearMission===1&&progresso.missao2_unlocked)||(player.nearMission===2&&progresso.missao2b_unlocked)||(player.nearMission===3&&progresso.missao3_unlocked);
+    const pulse=.6+Math.sin(t*.12)*.4;
+    ctx.save();ctx.globalAlpha=pulse;
+    ctx.font="7.5px 'Press Start 2P'";ctx.fillStyle=ul?'#ffe566':'#ff5566';ctx.textAlign='center';
+    ctx.fillText(ul?'[ ENTER ]':'🔒 BLOQUEADO',m.x,m.y-68);ctx.restore();
+  }
+  desenharAstronauta(player.x,player.y-20,player.facing,player.frame,t);
+  if(progresso.tem_luneta){
+    ctx.font="8px 'Share Tech Mono'";ctx.fillStyle='rgba(0,229,255,.5)';ctx.textAlign='left';
+    ctx.fillText('🔭 LUNETA DE GALILEU',10,H-8);
+  }
+  ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;ctx.strokeRect(0,0,W,H);
+
+}
+
+// ── ENCERRAMENTO ──────────────────────────────────────
+function irParaEstacao(){
+  mostrarEncerramento();
+}
+
+function mostrarEncerramento(){
+  gameState='ENCERRAMENTO';
+  // Trocar música de fundo pela música dos créditos
+  const bgMus = document.getElementById('bg-music');
+  const crMus = document.getElementById('credits-music');
+  bgMus.pause();
+  crMus.volume = 1.0;
+  crMus.currentTime = 0;
+  crMus.play().catch(()=>{});
+
+  const CREDITOS = [
+    { tipo:'titulo', texto:'✦ MISSÃO CONCLUÍDA ✦' },
+    { tipo:'espaco' },
+    { tipo:'msg', texto:'Você atravessou o cosmos,' },
+    { tipo:'msg', texto:'desafiou os gigantes da ciência' },
+    { tipo:'msg', texto:'e provou que o universo' },
+    { tipo:'msg', texto:'se revela para quem ousa' },
+    { tipo:'destaque', texto:'fazer as perguntas certas.' },
+    { tipo:'espaco' },
+    { tipo:'sub', texto:'O conhecimento não tem fim.' },
+    { tipo:'sub', texto:'Cada resposta abre uma nova pergunta.' },
+    { tipo:'sub', texto:'Continue explorando.' },
+    { tipo:'espaco' },
+    { tipo:'obrigado', texto:'★ OBRIGADO POR JOGAR ★' },
+    { tipo:'espaco' },{ tipo:'espaco' },{ tipo:'espaco' },
+    { tipo:'secao', texto:'— C R É D I T O S —' },
+    { tipo:'espaco' },
+    { tipo:'cargo', texto:'Diretor' },
+    { tipo:'nome', texto:'Victor' },
+    { tipo:'espaco' },
+    { tipo:'cargo', texto:'Programador' },
+    { tipo:'nome', texto:'Victor' },
+    { tipo:'espaco' },
+    { tipo:'cargo', texto:'Designer' },
+    { tipo:'nome', texto:'Victor' },
+    { tipo:'espaco' },
+    { tipo:'cargo', texto:'Artista' },
+    { tipo:'nome', texto:'Victor' },
+    { tipo:'espaco' },
+    { tipo:'cargo', texto:'Efeitos Sonoros' },
+    { tipo:'nome', texto:'Victor' },
+    { tipo:'espaco' },
+    { tipo:'cargo', texto:'Cafeteiro da Equipe' },
+    { tipo:'nome', texto:'Victor' },
+    { tipo:'espaco' },
+    { tipo:'cargo', texto:'Pessoa que consertou os bugs' },
+    { tipo:'cargo', texto:'que o Victor criou' },
+    { tipo:'nome', texto:'Victor' },
+    { tipo:'espaco' },
+    { tipo:'cargo', texto:'Pessoa que teve que lidar' },
+    { tipo:'cargo', texto:'com o Victor' },
+    { tipo:'nome', texto:'Victor' },
+    { tipo:'espaco' },{ tipo:'espaco' },
+    { tipo:'secao', texto:'— A G R A D E C I M E N T O S —' },
+    { tipo:'espaco' },
+    { tipo:'sub', texto:'Victor (o que não dormiu)' },
+    { tipo:'espaco' },
+    { tipo:'sub', texto:'Victor (o que esqueceu de salvar o projeto)' },
+    { tipo:'espaco' },
+    { tipo:'sub', texto:'Victor (o que finalmente terminou)' },
+    { tipo:'espaco' },
+    { tipo:'sub', texto:'Victor (o que já está pensando no próximo...)' },
+    { tipo:'espaco' },
+    { tipo:'sub', texto:'...e assim por diante' },
+    { tipo:'sub', texto:'até o final da música.' },
+    { tipo:'espaco' },{ tipo:'espaco' },{ tipo:'espaco' },
+    { tipo:'fim', texto:'FIM' },
+    { tipo:'espaco' },{ tipo:'espaco' },{ tipo:'espaco' },{ tipo:'espaco' },
+  ];
+
+  const overlay = document.createElement('div');
+  overlay.id = 'encerramento-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9999;overflow:hidden;opacity:0;transition:opacity 1.4s;';
+  overlay.innerHTML = `
+    <canvas id="credits-stars" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+    <div id="credits-scroll" style="
+      position:absolute;left:50%;transform:translateX(-50%);
+      width:560px;max-width:92vw;text-align:center;
+      font-family:'Press Start 2P',monospace;
+      top:100%;
+    "></div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(transparent,#000);pointer-events:none;z-index:3;"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:80px;background:linear-gradient(#000,transparent);pointer-events:none;z-index:3;"></div>
+    <div id="restart-btn" style="position:absolute;bottom:32px;left:50%;transform:translateX(-50%);z-index:10;opacity:0;transition:opacity 1.2s;pointer-events:none;">
+      <button onclick="reiniciarJogo()" style="font-family:'Press Start 2P',monospace;font-size:9px;background:transparent;border:2px solid #44eebb;color:#44eebb;padding:12px 28px;cursor:pointer;letter-spacing:2px;" onmouseover="this.style.background='rgba(68,238,187,.15)'" onmouseout="this.style.background='transparent'">▶ JOGAR NOVAMENTE</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const scroll = document.getElementById('credits-scroll');
+  const styles = {
+    titulo:  'font-size:11px;color:#ffe566;letter-spacing:3px;margin:8px 0;text-shadow:0 0 18px #ffe566aa;',
+    msg:     'font-size:12px;color:#ddeeff;line-height:2;margin:2px 0;',
+    destaque:'font-size:12px;color:#44eebb;line-height:2;margin:2px 0;text-shadow:0 0 12px #44eebb88;',
+    sub:     'font-size:8px;color:#889aaa;line-height:2.2;margin:1px 0;',
+    obrigado:'font-size:11px;color:#ff8844;letter-spacing:2px;margin:6px 0;',
+    secao:   'font-size:8px;color:#445577;letter-spacing:4px;margin:12px 0 4px;',
+    cargo:   'font-size:7px;color:#667788;letter-spacing:1px;margin:2px 0;',
+    nome:    'font-size:10px;color:#ffe566;margin:4px 0 12px;text-shadow:0 0 10px #ffe56666;',
+    fim:     'font-size:20px;color:#fff;letter-spacing:8px;margin:16px 0;text-shadow:0 0 30px #ffffff88;',
+  };
+  let html = '';
+  CREDITOS.forEach(c => {
+    if(c.tipo==='espaco'){ html+='<div style="height:32px"></div>'; return; }
+    html += '<div style="'+styles[c.tipo]+'">'+c.texto+'</div>';
+  });
+  scroll.innerHTML = html;
+
+  setTimeout(()=>{
+    overlay.style.opacity='1';
+    const sc = document.getElementById('credits-stars');
+    sc.width = window.innerWidth; sc.height = window.innerHeight;
+    const sctx = sc.getContext('2d');
+    const stars = Array.from({length:220},()=>({
+      x:Math.random()*sc.width, y:Math.random()*sc.height,
+      r:Math.random()*1.4+.2, a:Math.random()*Math.PI*2, s:Math.random()*.4+.15
+    }));
+    (function animStars(){
+      sctx.clearRect(0,0,sc.width,sc.height);
+      stars.forEach(s=>{ s.a+=s.s*.04;
+        sctx.beginPath();sctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+        sctx.fillStyle='rgba(255,255,255,'+(0.25+Math.sin(s.a)*0.25)+')';sctx.fill();
+      });
+      requestAnimationFrame(animStars);
+    })();
+  },100);
+
+  const VEL = 0.55;
+  let posY = window.innerHeight;
+  let terminouScroll = false;
+  setTimeout(()=>{
+    (function rolar(){
+      posY -= VEL;
+      scroll.style.top = posY + 'px';
+      if(posY + scroll.offsetHeight < 0 && !terminouScroll){
+        terminouScroll = true;
+        const btn = document.getElementById('restart-btn');
+        btn.style.opacity='1'; btn.style.pointerEvents='auto';
+      }
+      requestAnimationFrame(rolar);
+    })();
+  }, 1200);
+}
+
+function reiniciarJogo(){
+  const p=carregarProgresso();
+  // Limpar progresso de missões mas manter avatar
+  const novo={missao1_unlocked:true};
+  if(p.avatar) novo.avatar=p.avatar;
+  salvarProgresso(novo);
+  window.location.reload();
+}
+
+function iniciarMissao(idx){
+  if(idx===0&&progresso.missao1_unlocked){
+    dispararHistoria([
+      {quem:"NARRADOR",ouvinte:"ARISTÓTELES",texto:"Você pousa na Grécia Antiga, coração do pensamento clássico. Uma figura imponente bloqueia seu caminho ao cosmos."},
+      {quem:"ARISTÓTELES",ouvinte:"JOGADOR",texto:"Alto lá! Eu sou Aristóteles. A Terra é o centro IMÓVEL e PERFEITO do universo. O Geocentrismo é a ORDEM NATURAL das esferas celestes!"},
+      {quem:"JOGADOR",ouvinte:"ARISTÓTELES",texto:"Mas as observações mostram outra realidade! O retrógrado de Marte, as fases de Vênus... seus círculos não explicam os dados!"},
+      {quem:"ARISTÓTELES",ouvinte:"JOGADOR",texto:"Ousado, herético! Se quer atravessar meu domínio, terá que me vencer em combate científico. EN GARDE!"},
+    ],()=>{ window.location.href='fase1_mobile.html'; },"JOGADOR");
+  } else if(idx===1){
+    if(!progresso.missao2_unlocked)
+      dispararHistoria([{quem:"SISTEMA",ouvinte:"JOGADOR",texto:"Caminho bloqueado. Complete a Missão 1 primeiro para desbloquear as Leis de Kepler."}],null,"JOGADOR");
+    else {
+      dispararHistoria([
+        {quem:"NARRADOR",ouvinte:"JOHANNES KEPLER",texto:"Século XVII. Após décadas de cálculos com dados de Tycho Brahe, Johannes Kepler descobre a geometria das órbitas."},
+        {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Jovem! Use a LUNETA DE GALILEU para encontrar o planeta escondido. Depois ordene o Sistema Solar — das órbitas elípticas!"},
+      ],()=>{ window.location.href='fase2_mobile.html'; },"JOGADOR");
+    }
+  } else if(idx===2){
+    // Missão 2B — Órbitas Elípticas (lua)
+    if(!progresso.missao2_unlocked)
+      dispararHistoria([{quem:"SISTEMA",ouvinte:"JOGADOR",texto:"Complete a Missão 2 — Leis de Kepler — para acessar esta lua!"}],null,"JOGADOR");
+    else
+      dispararHistoria([
+        {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Agora que entende as órbitas, é hora de as VIVER! Pule de lua em lua navegando as órbitas elípticas do Sistema Solar!"},
+        {quem:"NARRADOR",ouvinte:"JOGADOR",texto:"No periélio você acelera, no afélio você abranda — salte no momento certo ou derive para o espaço!"},
+      ],()=>{ window.location.href='fase2b_mobile.html'; },"JOGADOR");
+
+  } else if(idx===3){
+    // Missão 3 — A Maçã de Newton
+    if(!progresso.missao3_unlocked)
+      dispararHistoria([{quem:"SISTEMA",ouvinte:"JOGADOR",texto:"Complete a Missão 2B — Órbitas Elípticas — para desbloquear A Maçã de Newton."}],null,"JOGADOR");
+    else
+      dispararHistoria([
+        {quem:"NARRADOR",ouvinte:"ISAAC NEWTON",texto:"Você chega à Inglaterra, 1666. Uma jovem maçã pende de um galho. Um homem de peruca observa o céu..."},
+        {quem:"ISAAC NEWTON",ouvinte:"JOGADOR",texto:"Desvie das maçãs, sobreviva ao experimento da queda dos corpos e responda meu quiz sobre F = G × m₁m₂ / r²!"},
+      ],()=>{ window.location.href='fase3_mobile.html'; },"JOGADOR");
+  }
+}
+
+// ── LOOP PRINCIPAL ─────────────────────────────────────
+let ticks=0;
+function loop(){
+  ticks++;
+  if(dlgCooldown>0) dlgCooldown--;
+  ctx.fillStyle='#04040e';ctx.fillRect(0,0,W,H);
+  if(estadoJogo==="MAPA"||estadoJogo==="DIALOGO"){
+    if(estadoJogo==="MAPA"){
+      player.vx=0;player.vy=0;
+      if(keys['ArrowLeft']){player.vx=-player.speed;player.facing=-1;}
+      if(keys['ArrowRight']){player.vx=player.speed;player.facing=1;}
+      if(keys['ArrowUp'])   player.vy=-player.speed;
+      if(keys['ArrowDown']) player.vy=player.speed;
+      if(player.vx&&player.vy){player.vx*=.707;player.vy*=.707;}
+      player.x+=player.vx;player.y+=player.vy;
+      player.x=Math.max(20,Math.min(W-20,player.x));
+      player.y=Math.max(20,Math.min(H-20,player.y));
+      if(player.vx||player.vy){player.frameTimer++;if(player.frameTimer>8){player.frame^=1;player.frameTimer=0;}}else player.frame=0;
+      player.nearMission=null;
+      player.nearEstacao=false;
+      MISSIONS.forEach((m,i)=>{if(Math.sqrt((player.x-m.x)**2+(player.y-m.y)**2)<52)player.nearMission=i;});
+      if(progresso.missao3_completa){
+        const dx=player.x-ESTACAO.xFinal, dy=player.y-ESTACAO.yFinal;
+        player.nearEstacao=Math.sqrt(dx*dx+dy*dy)<60;
+      }
+    }
+    desenharMapa(ticks);
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+// ── MÚSICA DE FUNDO ──────────────────────────────────────
+const bgMusic = document.getElementById('bg-music');
+let musicaAtiva = true;
+let sfxAtivo = true;
+let volumeAtual = 0.30;
+
+bgMusic.volume = volumeAtual;
+
+// Iniciar música no primeiro clique/tecla (autoplay policy)
+function iniciarMusica(){
+  if(musicaAtiva && bgMusic.paused){
+    bgMusic.play().catch(()=>{});
+  }
+  document.removeEventListener('click', iniciarMusica);
+  document.removeEventListener('keydown', iniciarMusica);
+}
+document.addEventListener('click', iniciarMusica);
+document.addEventListener('keydown', iniciarMusica);
+
+// ── FUNÇÕES DO PAINEL ─────────────────────────────────────
+function abrirConfig(){
+  GZ_Audio&&GZ_Audio.btnClick();
+  document.getElementById('config-overlay').classList.add('visible');
+}
+function fecharConfig(){
+  GZ_Audio&&GZ_Audio.btnClick();
+  document.getElementById('config-overlay').classList.remove('visible');
+}
+function fecharConfigOverlay(e){
+  if(e.target===document.getElementById('config-overlay')) fecharConfig();
+}
+function toggleMusica(ativo){
+  musicaAtiva = ativo;
+  if(ativo){ bgMusic.play().catch(()=>{}); }
+  else { bgMusic.pause(); }
+  salvarConfigAudio();
+}
+function ajustarVolume(val){
+  volumeAtual = val/100;
+  bgMusic.volume = volumeAtual;
+  document.getElementById('val-volume').textContent = val+'%';
+  if(val > 0 && !musicaAtiva){
+    document.getElementById('toggle-musica').checked = true;
+    musicaAtiva = true;
+    bgMusic.play().catch(()=>{});
+  }
+  if(val == 0){
+    document.getElementById('toggle-musica').checked = false;
+    musicaAtiva = false;
+    bgMusic.pause();
+  }
+  salvarConfigAudio();
+}
+function toggleSFX(ativo){
+  sfxAtivo = ativo;
+  salvarConfigAudio();
+}
+function salvarConfigAudio(){
+  try{
+    localStorage.setItem('gz_audio', JSON.stringify({
+      musicaAtiva, volumeAtual, sfxAtivo
+    }));
+  }catch(e){}
+}
+function carregarConfigAudio(){
+  try{
+    const s = localStorage.getItem('gz_audio');
+    if(!s) return;
+    const cfg = JSON.parse(s);
+    musicaAtiva = cfg.musicaAtiva !== false;
+    volumeAtual = cfg.volumeAtual ?? 0.30;
+    sfxAtivo    = cfg.sfxAtivo !== false;
+    bgMusic.volume = volumeAtual;
+    document.getElementById('slider-volume').value = Math.round(volumeAtual*100);
+    document.getElementById('val-volume').textContent = Math.round(volumeAtual*100)+'%';
+    document.getElementById('toggle-musica').checked = musicaAtiva;
+    document.getElementById('toggle-sfx').checked    = sfxAtivo;
+    if(!musicaAtiva) bgMusic.pause();
+  }catch(e){}
+}
+carregarConfigAudio();
+
+// Fechar com ESC
+window.addEventListener('keydown', e=>{
+  if(e.key==='Escape') fecharConfig();
+});
+
+</script>
+<div id="gz-fullscreen-btn" title="Tela cheia">⛶</div>
+<div id="gz-touch-controls">
+  <div class="gz-dpad">
+    <div class="gz-btn gz-up" data-key="ArrowUp">▲</div>
+    <div class="gz-btn gz-left" data-key="ArrowLeft">◀</div>
+    <div class="gz-btn gz-down" data-key="ArrowDown">▼</div>
+    <div class="gz-btn gz-right" data-key="ArrowRight">▶</div>
+  </div>
+  <div class="gz-extra">
+    <div class="gz-btn gz-esc" data-key="Escape" data-tap="1" title="ESC">ESC</div>
+    <div class="gz-btn gz-secondary" data-key="r" data-tap="1" title="R">R</div>
+  </div>
+  <div class="gz-actions">
+    <div class="gz-btn gz-secondary" data-key="Enter" data-tap="1" title="Enter">ENT</div>
+    <div class="gz-btn gz-action" data-key=" " title="Ação">SOCO</div>
+  </div>
+</div>
+
+<script id="gz-mobile-script">
+(function(){
+  // ── 1. Escalonar o canvas-wrapper para caber na tela ──
+  function escalarCanvas(){
+    const wrapper = document.querySelector('.canvas-wrapper');
+    if(!wrapper) return;
+    let outer = document.getElementById('gz-scale-outer');
+    if(!outer){
+      outer = document.createElement('div');
+      outer.id = 'gz-scale-outer';
+      wrapper.parentNode.insertBefore(outer, wrapper);
+      outer.appendChild(wrapper);
+    }
+    const baseW = wrapper.offsetWidth || 800;
+    const baseH = wrapper.offsetHeight || 550;
+    const availW = window.innerWidth - 8;
+    const isMobile = window.matchMedia('(max-width: 880px), (pointer: coarse)').matches;
+    const reservedBottom = isMobile ? 165 : 0;
+    const reservedTop = isMobile ? 36 : 0;
+    const availH = window.innerHeight - reservedBottom - reservedTop;
+    const scale = Math.min(availW / baseW, availH / baseH, 1);
+    wrapper.style.transform = `scale(${scale})`;
+    wrapper._gzScale = scale;
+    outer.style.height = (baseH * scale) + 'px';
+  }
+  window.addEventListener('resize', escalarCanvas);
+  window.addEventListener('orientationchange', ()=>setTimeout(escalarCanvas,200));
+  document.addEventListener('DOMContentLoaded', escalarCanvas);
+  setTimeout(escalarCanvas, 50);
+  setTimeout(escalarCanvas, 400);
+
+  // ── 2. Disparar eventos de teclado sintéticos ──
+  function dispatchKey(type, key){
+    const ev = new KeyboardEvent(type, {key:key, bubbles:true, cancelable:true});
+    window.dispatchEvent(ev);
+    document.dispatchEvent(ev);
+  }
+
+  function bindBtn(btn){
+    const key = btn.getAttribute('data-key');
+    const isTap = btn.getAttribute('data-tap') === '1';
+
+    function press(e){
+      e.preventDefault();
+      btn.classList.add('gz-pressed');
+      dispatchKey('keydown', key);
+      if(isTap){
+        setTimeout(()=>dispatchKey('keyup', key), 30);
+      }
+    }
+    function release(e){
+      if(e) e.preventDefault();
+      btn.classList.remove('gz-pressed');
+      if(!isTap) dispatchKey('keyup', key);
+    }
+
+    btn.addEventListener('touchstart', press, {passive:false});
+    btn.addEventListener('touchend', release, {passive:false});
+    btn.addEventListener('touchcancel', release, {passive:false});
+    btn.addEventListener('mousedown', press);
+    btn.addEventListener('mouseup', release);
+    btn.addEventListener('mouseleave', release);
+  }
+
+  document.querySelectorAll('#gz-touch-controls .gz-btn').forEach(bindBtn);
+
+  // ── 3. Toque na tela para avançar diálogo (Espaço) ──
+  const wrapperEl = document.querySelector('.canvas-wrapper');
+  if(wrapperEl){
+    wrapperEl.addEventListener('touchend', function(e){
+      const dlg = document.getElementById('dialogue-overlay');
+      if(dlg && dlg.classList.contains('visible')){
+        if(e.target.closest && e.target.closest('#gz-touch-controls')) return;
+        dispatchKey('keydown', ' ');
+        dispatchKey('keyup', ' ');
+      }
+    }, {passive:true});
+  }
+
+  // ── 4. Ponte de toque → eventos de mouse no canvas (drag da luneta etc.) ──
+  function bridgeTouchToMouse(canvas){
+    if(!canvas) return;
+    function touchToMouseEvent(touchEvent, type){
+      const touch = touchEvent.changedTouches[0];
+      if(!touch) return;
+      const scale = wrapperEl ? (wrapperEl._gzScale || 1) : 1;
+      const rect = canvas.getBoundingClientRect();
+      const x = (touch.clientX - rect.left) / scale;
+      const y = (touch.clientY - rect.top) / scale;
+      const mouseEvent = new MouseEvent(type, {
+        clientX: rect.left + x*scale,
+        clientY: rect.top + y*scale,
+        bubbles: true, cancelable: true
+      });
+      canvas.dispatchEvent(mouseEvent);
+    }
+    canvas.addEventListener('touchstart', e=>{ touchToMouseEvent(e,'mousedown'); }, {passive:true});
+    canvas.addEventListener('touchmove', e=>{ touchToMouseEvent(e,'mousemove'); }, {passive:true});
+    canvas.addEventListener('touchend', e=>{ touchToMouseEvent(e,'mouseup'); }, {passive:true});
+  }
+  bridgeTouchToMouse(document.getElementById('gameCanvas'));
+
+  // ── 5. Iniciar áudio no primeiro toque (política de autoplay) ──
+  function iniciarAudioTouch(){
+    if(window.GZ_Audio && typeof GZ_Audio.init==='function'){
+      GZ_Audio.init();
+      GZ_Audio.resume && GZ_Audio.resume();
+    }
+    document.removeEventListener('touchstart', iniciarAudioTouch);
+  }
+  document.addEventListener('touchstart', iniciarAudioTouch, {passive:true});
+
+  // ── 6. Corrigir cutscenes travadas no mobile (autoplay bloqueado) ──
+  // IDs conhecidos de overlays de cutscene em todo o jogo
+  const CUTSCENE_IDS = ['screen-cutscene','cutscene-intro','cutscene-drag4'];
+  const SKIP_BTN_IDS = ['skip-btn','skip-intro-btn','skip-drag4-btn'];
+
+  function cutsceneVisivel(el){
+    if(!el) return false;
+    const cs = getComputedStyle(el);
+    if(cs.display==='none') return false;
+    if(el.id==='screen-cutscene') return el.classList.contains('visible');
+    return true; // cutscene-intro/drag4 usam display flex/none
+  }
+
+  function algumaCutsceneVisivel(){
+    return CUTSCENE_IDS.some(id=>cutsceneVisivel(document.getElementById(id)));
+  }
+
+  // Esconde os controles touch enquanto uma cutscene estiver visível,
+  // pra não bloquear o botão "PULAR" por cima (z-index)
+  function atualizarVisibilidadeControles(){
+    const tc = document.getElementById('gz-touch-controls');
+    if(!tc) return;
+    tc.style.display = algumaCutsceneVisivel() ? 'none' : '';
+  }
+  setInterval(atualizarVisibilidadeControles, 250);
+
+  // Tenta retomar o play dos vídeos de cutscene no primeiro toque
+  // (autoplay sem gesto do usuário costuma falhar/ficar parado)
+  function retomarVideosCutscene(){
+    document.querySelectorAll('#screen-cutscene video, #cutscene-intro video, #cutscene-drag4 video')
+      .forEach(v=>{
+        if(v.paused && v.readyState>0){
+          v.play().catch(()=>{});
+        }
+      });
+  }
+
+  // Toque em qualquer lugar de uma cutscene visível = pular (clica no botão PULAR correspondente)
+  function tapSkipCutscene(e){
+    let pulou = false;
+    CUTSCENE_IDS.forEach((id,i)=>{
+      const el = document.getElementById(id);
+      if(cutsceneVisivel(el)){
+        const btn = document.getElementById(SKIP_BTN_IDS[i]);
+        if(btn){ btn.click(); pulou = true; }
+        else {
+          // fallback: index.html usa video.addEventListener('ended', afterCutscene)
+          const vid = el.querySelector('video');
+          if(vid){
+            vid.dispatchEvent(new Event('ended'));
+            pulou = true;
+          }
+        }
+      }
+    });
+    if(pulou) e.preventDefault();
+  }
+
+  document.addEventListener('touchstart', function(e){
+    retomarVideosCutscene();
+    if(algumaCutsceneVisivel()) tapSkipCutscene(e);
+  }, {passive:false});
+
+  document.addEventListener('touchend', function(e){
+    if(algumaCutsceneVisivel()) tapSkipCutscene(e);
+  }, {passive:false});
+
+  // ── 7. Botão de tela cheia ──
+  const fsBtn = document.getElementById('gz-fullscreen-btn');
+  if(fsBtn){
+    fsBtn.addEventListener('click', function(){
+      const el = document.documentElement;
+      if(!document.fullscreenElement){
+        (el.requestFullscreen && el.requestFullscreen())
+          || (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+      } else {
+        (document.exitFullscreen && document.exitFullscreen())
+          || (document.webkitExitFullscreen && document.webkitExitFullscreen());
+      }
+    });
+    document.addEventListener('fullscreenchange', ()=>setTimeout(escalarCanvas,150));
+    document.addEventListener('webkitfullscreenchange', ()=>setTimeout(escalarCanvas,150));
+  }
+})();
+</script>
+</body>
+</html>
