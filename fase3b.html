@@ -496,7 +496,9 @@ function desenharHUD(){
 // ── CONTROLES ────────────────────────────────────────
 const keys={};
 window.addEventListener('keydown',e=>{
+  if(e.repeat&&['Enter',' ','Escape','r','R'].includes(e.key)) return;
   keys[e.key]=true;
+  if(e.key==='Escape'){ GZ_Audio&&GZ_Audio.btnClick(); window.location.href='mapa.html'; return; }
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
   if(e.key==='r'||e.key==='R') reiniciarDisparo();
   if(e.key===' ') disparar();
@@ -552,5 +554,6 @@ function loop(){
 }
 loop();
 </script>
+<script src="gz_gamepad.js"></script>
 </body>
 </html>

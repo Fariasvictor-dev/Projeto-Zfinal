@@ -560,9 +560,11 @@ loop();
 
 // Controles
 window.addEventListener('keydown',e=>{
+  if(e.repeat&&[' ','ArrowUp'].includes(e.key)) return;
   if(e.key===' '||e.key==='ArrowUp'){e.preventDefault();tentarSalto();}
 });
 GC.addEventListener('click',tentarSalto);
 </script>
+<script src="gz_gamepad.js"></script>
 </body>
 </html>

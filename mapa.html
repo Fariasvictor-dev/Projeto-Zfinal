@@ -359,9 +359,10 @@ const player = {
 
 const keys={};
 window.addEventListener('keydown',e=>{
+  if(e.repeat&&['Enter',' ','Escape'].includes(e.key)) return;
   keys[e.key]=true;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
-  if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){ GZ_Audio.dialogoAvancar(); indiceScript++; atualizarDlg(); return; }
+  if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){ if(dlgCooldown>0) return; GZ_Audio.dialogoAvancar(); indiceScript++; atualizarDlg(); return; }
   if(estadoJogo==="MAPA"&&e.key==='Enter'){
     if(player.nearEstacao){ GZ_Audio.btnClick(); irParaEstacao(); return; }
     if(player.nearMission!==null){ GZ_Audio.btnClick(); iniciarMissao(player.nearMission); }
@@ -957,5 +958,6 @@ window.addEventListener('keydown', e=>{
 });
 
 </script>
+<script src="gz_gamepad.js"></script>
 </body>
 </html>

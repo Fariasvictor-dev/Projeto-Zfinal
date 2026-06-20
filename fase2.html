@@ -288,6 +288,9 @@
 
 <p class="hint" id="hint-bar">Arraste a luneta para encontrar o planeta escondido!</p>
 <script src="shared.js"></script>
+<script>
+function gzIrPara(url){ window.location.href = url; }
+</script>
 <script src="audio.js"></script>
 <script>
 const canvas=document.getElementById('gameCanvas');
@@ -314,7 +317,7 @@ function atualizarDlg(){
     ov.classList.add('visible');
     document.getElementById('speaker-name').textContent=f.quem;
     document.getElementById('speaker-message').textContent=f.texto;
-    dlgCooldown=22;
+    dlgCooldown=55;
     const arEl=document.getElementById('dlg-arrow-el');
     if(arEl){arEl.style.opacity='0';setTimeout(()=>{const a=document.getElementById('dlg-arrow-el');if(a)a.style.opacity='1';},400);}
     desenharAvatarCanvas(document.getElementById('avatar-canvas'),f.quem);
@@ -331,7 +334,7 @@ function atualizarDlg(){
 function dispararHistoria(falas,cb,ouv){
   scriptAtual=falas;indiceScript=0;acaoPos=cb;
   if(estadoJogo!=="DIALOGO")estadoAnteriorDialogo=estadoJogo;
-  estadoJogo="DIALOGO";dlgCooldown=35;atualizarDlg();
+  estadoJogo="DIALOGO";dlgCooldown=80;atualizarDlg();
 }
 
 // ── DADOS DOS PLANETAS ────────────────────────────────────
@@ -451,6 +454,60 @@ function soltarPlaneta(ds,id){
   }
   if(!ds.verificado)verificarOrdem(ds);
 }
+
+// ── SISTEMA DE DRAG POR TECLADO/CONTROLE ──────────────────────────
+const gpDrag = { selecionado:-1, segurando:false };
+
+function gpGetDs(){ return m2Estado==="DRAG_4"?m2.drag4:m2.drag8; }
+
+function gpSelecionarProximo(dir){
+  const ds=gpGetDs(); if(!ds) return;
+  const total=ds.planetas.length; if(!total) return;
+  gpDrag.selecionado=(gpDrag.selecionado+dir+total)%total;
+  GZ_Audio&&GZ_Audio.btnNav();
+}
+
+function gpPegarSoltar(){
+  const ds=gpGetDs(); if(!ds) return;
+  const p=ds.planetas[gpDrag.selecionado]; if(!p) return;
+  if(!gpDrag.segurando){
+    if(p.noSlot>=0){ds.slots[p.noSlot].ocupado=-1;p.noSlot=-1;}
+    p.arrastando=true;
+    p.dragX=p.noSlot>=0?ds.slots[p.noSlot].x:(p.dragX||p.x);
+    p.dragY=p.noSlot>=0?ds.slots[p.noSlot].y:(p.dragY||p.y);
+    gpDrag.segurando=true;
+    GZ_Audio&&GZ_Audio.btnClick();
+  } else {
+    p.arrastando=false;
+    gpDrag.segurando=false;
+    soltarPlaneta(ds,gpDrag.selecionado);
+    GZ_Audio&&GZ_Audio.btnNav();
+  }
+}
+
+function gpMoverPlaneta(){
+  if(!gpDrag.segurando||gpDrag.selecionado<0) return;
+  const ds=gpGetDs(); if(!ds) return;
+  const p=ds.planetas[gpDrag.selecionado]; if(!p) return;
+  const spd=4;
+  if(keys['ArrowLeft'])  p.dragX=Math.max(p.r,p.dragX-spd);
+  if(keys['ArrowRight']) p.dragX=Math.min(W-p.r,p.dragX+spd);
+  if(keys['ArrowUp'])    p.dragY=Math.max(p.r,p.dragY-spd);
+  if(keys['ArrowDown'])  p.dragY=Math.min(H-p.r,p.dragY+spd);
+}
+
+function gpDesenharSelecao(ds){
+  if(gpDrag.selecionado<0||gpDrag.selecionado>=ds.planetas.length) return;
+  const p=ds.planetas[gpDrag.selecionado];
+  const px=p.arrastando?(p.dragX||p.x):(p.noSlot>=0?ds.slots[p.noSlot].x:p.x);
+  const py=p.arrastando?(p.dragY||p.y):(p.noSlot>=0?ds.slots[p.noSlot].y:p.y);
+  ctx.save();
+  ctx.beginPath();ctx.arc(px,py,p.r+8,0,Math.PI*2);
+  ctx.strokeStyle=gpDrag.segurando?'#ffff00':'#44eebb';
+  ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.stroke();
+  ctx.setLineDash([]);ctx.restore();
+}
+
 function verificarOrdem(ds){
   if(!ds.planetas.every(p=>p.noSlot>=0))return;
   ds.verificado=true;
@@ -487,7 +544,7 @@ function verificarOrdem(ds){
             '⚡ As 3 Leis de Kepler dominadas!<br><br>'+
             '<span style="color:#ff4081">🗺️ MISSÃO 2B — ÓRBITAS ELÍPTICAS — DESBLOQUEADA!</span>';
           document.getElementById('victory-banner').classList.add('visible');
-          document.getElementById('victory-btn').onclick=()=>{GZ_Audio&&GZ_Audio.btnClick();window.location.href='mapa.html';};
+          document.getElementById('victory-btn').onclick=()=>{GZ_Audio&&GZ_Audio.btnClick();gzIrPara('mapa.html');};
         }, "JOGADOR");
       },500);
     }
@@ -604,18 +661,49 @@ function desenharM2(t){
   ctx.fillStyle='#04040e';ctx.fillRect(0,0,W,H);
   ctx.drawImage(nbCanvas,0,0);
   STARS.forEach(s=>{s.twinkleOffset+=s.twinkleSpeed;const a=.25+Math.sin(s.twinkleOffset)*.3;ctx.fillStyle=`rgba(200,220,255,${a})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
-  if(m2Estado==="LUNETA")desenharLuneta(t);
-  else if(m2Estado==="DRAG_4")desenharDrag4(t);
-  else if(m2Estado==="DRAG_8")desenharDrag8(t);
+  if(m2Estado==="LUNETA"){
+    // Mover luneta com teclado/controle
+    const spd=6;
+    if(keys['ArrowLeft'])  m2.lunetaX=Math.max(m2.lunetaRaio,m2.lunetaX-spd);
+    if(keys['ArrowRight']) m2.lunetaX=Math.min(W-m2.lunetaRaio,m2.lunetaX+spd);
+    if(keys['ArrowUp'])    m2.lunetaY=Math.max(m2.lunetaRaio,m2.lunetaY-spd);
+    if(keys['ArrowDown'])  m2.lunetaY=Math.min(H-m2.lunetaRaio,m2.lunetaY+spd);
+    // Detectar planeta
+    if(!m2.planetaAchado){
+      const _dx=m2.lunetaX-m2.planetaX,_dy=m2.lunetaY-m2.planetaY;
+      if(Math.sqrt(_dx*_dx+_dy*_dy)<m2.lunetaRaio-20){
+        m2.planetaAchado=true;
+        GZ_Audio&&GZ_Audio.missaoDesbloqueada();
+        setTimeout(()=>{
+          dispararHistoria([
+            {quem:"NARRADOR",ouvinte:"JOHANNES KEPLER",texto:"Incrível! Através da luneta, você encontrou um planeta escondido na escuridão. A observação científica revela o que os olhos não veem!"},
+            {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Bem-vindo, jovem! Sou Johannes Kepler. Dediquei minha vida a entender as órbitas planetárias. Sabia que elas NÃO são círculos perfeitos?"},
+            {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"São ELIPSES! Com o Sol num dos focos. Essa é minha 1ª Lei. E os planetas mais próximos do Sol orbitam MAIS RÁPIDO — minha 2ª Lei!"},
+            {quem:"JOHANNES KEPLER",ouvinte:"JOGADOR",texto:"Agora prove que aprendeu: arraste os 4 planetas internos para as órbitas na ordem correta de distância do Sol!"},
+          ],()=>{m2Estado="DRAG_4";document.getElementById('hint-bar').textContent='Arraste os planetas para as órbitas na ordem correta!';},"JOGADOR");
+        },400);
+      }
+    }
+    desenharLuneta(t);
+  }
+  else if(m2Estado==="DRAG_4"){gpMoverPlaneta();desenharDrag4(t);gpDesenharSelecao(m2.drag4);}
+  else if(m2Estado==="DRAG_8"){gpMoverPlaneta();desenharDrag8(t);gpDesenharSelecao(m2.drag8);}
   ctx.font="9px 'Press Start 2P'";ctx.fillStyle='rgba(255,200,0,.6)';ctx.textAlign='center';ctx.fillText('MISSÃO 2 — KEPLER E AS ÓRBITAS',W/2,22);
 }
 
 // ── CONTROLES ─────────────────────────────────────────────
 const keys={};
 window.addEventListener('keydown',e=>{
+  if(e.repeat&&['Enter',' ','Escape','q','e','Q','E'].includes(e.key)) return;
   keys[e.key]=true;
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
-  if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){if(dlgCooldown>0)return;GZ_Audio&&GZ_Audio.dialogoAvancar();indiceScript++;atualizarDlg();}
+  if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){if(dlgCooldown>0)return;GZ_Audio&&GZ_Audio.dialogoAvancar();indiceScript++;atualizarDlg();return;}
+  if(e.key==='Escape'&&introDiv&&introDiv.style.display==='none'){gzIrPara('mapa.html');return;}
+  if((m2Estado==="DRAG_4"||m2Estado==="DRAG_8")){
+    if(e.key==='q'||e.key==='Q'){gpSelecionarProximo(-1);return;}
+    if(e.key==='e'||e.key==='E'){gpSelecionarProximo(1);return;}
+    if(e.key==='Enter'||e.key===' '){gpPegarSoltar();return;}
+  }
 });
 window.addEventListener('keyup',e=>{keys[e.key]=false;});
 
@@ -631,16 +719,32 @@ function fecharCutsceneIntro(){
   setTimeout(()=>{ introDiv.style.display='none'; }, 500);
 }
 
+// Botão skip e teclas removidos — só fecha quando vídeo termina
+skipBtn.style.display = 'none';
 introVid.addEventListener('ended', fecharCutsceneIntro);
-skipBtn.addEventListener('click', fecharCutsceneIntro);
-window.addEventListener('keydown', e=>{
-  if(introDiv.style.display!=='none' && (e.key===' '||e.key==='Enter'||e.key==='Escape')){
-    fecharCutsceneIntro();
-  }
-});
 
-// Tentar reproduzir (autoplay policy)
-introVid.play().catch(()=>{ fecharCutsceneIntro(); });
+// Bloquear todas as teclas enquanto a intro toca
+function onKeyIntro(e){ e.stopImmediatePropagation(); e.preventDefault(); }
+window.addEventListener('keydown', onKeyIntro, true);
+window.addEventListener('keyup',   onKeyIntro, true);
+
+// Remover bloqueio quando intro fechar
+const _fecharIntroOrig = fecharCutsceneIntro;
+fecharCutsceneIntro = ()=>{
+  window.removeEventListener('keydown', onKeyIntro, true);
+  window.removeEventListener('keyup',   onKeyIntro, true);
+  _fecharIntroOrig();
+
+};
+
+// Tentar reproduzir — se bloqueado, mostrar overlay de clique
+introVid.play().catch(()=>{
+  const tapOverlay = document.createElement('div');
+  tapOverlay.style.cssText = 'position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);cursor:pointer;';
+  tapOverlay.innerHTML = '<div style="font-family:\'Press Start 2P\',monospace;color:#ffe566;font-size:.8rem;text-align:center;line-height:2.5;">▶ CLIQUE PARA<br>INICIAR</div>';
+  introDiv.appendChild(tapOverlay);
+  tapOverlay.addEventListener('click',()=>{ tapOverlay.remove(); introVid.play().catch(()=>fecharCutsceneIntro()); },{once:true});
+});
 
 // ── FUNÇÃO CUTSCENE PÓS DRAG4 ───────────────────────────
 function tocarCutsceneDrag4(callback){
@@ -650,7 +754,13 @@ function tocarCutsceneDrag4(callback){
 
   div.style.display='flex';
   vid.currentTime=0;
-  vid.play().catch(()=>{ fecharCutsceneDrag4(callback); });
+  vid.play().catch(()=>{
+    const t2 = document.createElement('div');
+    t2.style.cssText = 'position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);cursor:pointer;';
+    t2.innerHTML = '<div style="font-family:\'Press Start 2P\',monospace;color:#ffe566;font-size:.8rem;text-align:center;line-height:2.5;">▶ CLIQUE PARA<br>CONTINUAR</div>';
+    div.appendChild(t2);
+    t2.addEventListener('click',()=>{ t2.remove(); vid.play().catch(()=>fecharCutsceneDrag4(callback)); },{once:true});
+  });
 
   function fecharCutsceneDrag4(cb){
     div.style.opacity='0';
@@ -662,17 +772,22 @@ function tocarCutsceneDrag4(callback){
     },500);
   }
 
+  // Só fecha quando o vídeo termina — não pode ser pulado
+  skip.style.display = 'none';
   vid.onended = ()=>fecharCutsceneDrag4(callback);
-  skip.onclick = ()=>fecharCutsceneDrag4(callback);
 
-  // Teclas para pular
-  function onKey(e){
-    if(e.key===' '||e.key==='Enter'||e.key==='Escape'){
-      fecharCutsceneDrag4(callback);
-      window.removeEventListener('keydown', onKey);
-    }
-  }
-  window.addEventListener('keydown', onKey);
+  // Bloquear todas as teclas enquanto a cutscene toca
+  function onKey(e){ e.stopImmediatePropagation(); e.preventDefault(); }
+  window.addEventListener('keydown', onKey, true);
+  window.addEventListener('keyup',   onKey, true);
+
+  // Remover bloqueio quando fechar
+  const _fecharOrig = fecharCutsceneDrag4;
+  fecharCutsceneDrag4 = (cb)=>{
+    window.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('keyup',   onKey, true);
+    _fecharOrig(cb);
+  };
 }
 
 inicializarM2();
@@ -694,5 +809,6 @@ function loop(){
 }
 loop();
 </script>
+<script src="gz_gamepad.js"></script>
 </body>
 </html>

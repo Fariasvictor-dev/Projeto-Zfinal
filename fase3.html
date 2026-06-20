@@ -280,7 +280,7 @@ function atualizarDlg(){
     ov.classList.add('visible');
     document.getElementById('speaker-name').textContent=f.quem;
     document.getElementById('speaker-message').textContent=f.texto;
-    dlgCooldown=22;
+    dlgCooldown=55;
     const arEl=document.getElementById('dlg-arrow-el');
     if(arEl){arEl.style.opacity='0';setTimeout(()=>{const a=document.getElementById('dlg-arrow-el');if(a)a.style.opacity='1';},400);}
     desenharAvatarCanvas(document.getElementById('avatar-canvas'),f.quem);
@@ -297,7 +297,7 @@ function atualizarDlg(){
 function dispararHistoria(falas,cb,ouv){
   scriptAtual=falas;indiceScript=0;acaoPos=cb;
   if(estadoJogo!=="DIALOGO")estadoAnteriorDialogo=estadoJogo;
-  estadoJogo="DIALOGO";dlgCooldown=35;atualizarDlg();
+  estadoJogo="DIALOGO";dlgCooldown=80;atualizarDlg();
 }
 
 // ── MISSÃO 3 — DESVIAR MAÇÃS ─────────────────────────────
@@ -492,7 +492,9 @@ canvas.addEventListener('mousedown',e=>{
 // ── CONTROLES ─────────────────────────────────────────────
 const keys={};
 window.addEventListener('keydown',e=>{
+  if(e.repeat&&['Enter',' ','Escape'].includes(e.key)) return;
   keys[e.key]=true;
+  if(e.key==='Escape'&&estadoJogo!=='DIALOGO'){ GZ_Audio&&GZ_Audio.btnClick(); window.location.href='mapa.html'; return; }
   if(['ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
   if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){if(dlgCooldown>0)return;GZ_Audio&&GZ_Audio.dialogoAvancar();indiceScript++;atualizarDlg();}
 });
@@ -537,5 +539,6 @@ function loop(){
 }
 loop();
 </script>
+<script src="gz_gamepad.js"></script>
 </body>
 </html>

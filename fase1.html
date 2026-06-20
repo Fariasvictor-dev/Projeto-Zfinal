@@ -523,6 +523,7 @@ document.getElementById('map-btn-defeat').onclick=()=>{ GZ_Audio.btnClick(); win
 // ── CONTROLES ──────────────────────────────────────────
 const keys={};
 window.addEventListener('keydown',e=>{
+  if(e.repeat&&['Enter',' ','Escape'].includes(e.key)) return;
   keys[e.key]=true;
   if(['ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
   if(estadoJogo==="DIALOGO"&&(e.key===' '||e.key==='Enter')){
@@ -785,5 +786,6 @@ function loop(){
 }
 loop();
 </script>
+<script src="gz_gamepad.js"></script>
 </body>
 </html>
